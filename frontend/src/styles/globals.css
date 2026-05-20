@@ -1,0 +1,227 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Custom CSS Variables for Dark Theme */
+:root {
+  --color-bg: #0f1419;
+  --color-surface-primary: #1a1f2e;
+  --color-surface-secondary: #232937;
+  --color-card: #232937;
+  --color-border: #2d3748;
+  --color-text-primary: #f7fafc;
+  --color-text-secondary: #cbd5e0;
+  --color-text-muted: #a0aec0;
+  --color-accent-primary: #3b82f6;
+  --color-accent-secondary: #60a5fa;
+}
+
+/* Base Styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-dark-bg text-dark-text-primary font-sans antialiased;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-dark-surface-primary;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #1a1f2e;
+}
+
+/* Focus Styles */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-dark-bg;
+}
+
+/* Button Variants */
+.btn-primary {
+  @apply bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200 focus-ring;
+}
+
+.btn-secondary {
+  @apply bg-dark-card hover:bg-gray-700 text-dark-text-primary border border-dark-border font-medium px-4 py-2 rounded-lg transition-colors duration-200 focus-ring;
+}
+
+.btn-ghost {
+  @apply hover:bg-dark-card text-dark-text-secondary hover:text-dark-text-primary font-medium px-4 py-2 rounded-lg transition-colors duration-200 focus-ring;
+}
+
+/* Input Styles */
+.input-primary {
+  @apply bg-dark-surface-primary border border-dark-border text-dark-text-primary placeholder-dark-text-muted rounded-lg px-3 py-2 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors duration-200;
+}
+
+/* Card Styles */
+.card {
+  @apply bg-dark-card border border-dark-border rounded-lg shadow-dark;
+}
+
+.card-hover {
+  @apply card hover:border-gray-600 transition-colors duration-200;
+}
+
+/* Chat Message Styles */
+.message-user {
+  @apply bg-chat-user text-white rounded-2xl rounded-br-md px-4 py-2 max-w-xs md:max-w-md lg:max-w-lg ml-auto;
+}
+
+/* Theme-aware assistant message styles */
+.dark .message-assistant {
+  @apply bg-dark-card border border-dark-border rounded-2xl rounded-bl-md px-4 py-2 max-w-xs md:max-w-md lg:max-w-lg mr-auto;
+}
+
+.light .message-assistant {
+  @apply bg-light-card border border-light-border rounded-2xl rounded-bl-md px-4 py-2 max-w-xs md:max-w-md lg:max-w-lg mr-auto;
+}
+
+.message-system {
+  @apply bg-chat-system/10 border border-chat-system/20 text-chat-system rounded-lg px-3 py-2 text-sm text-center mx-auto max-w-md;
+}
+
+.message-error {
+  @apply bg-chat-error/10 border border-chat-error/20 text-chat-error rounded-lg px-3 py-2 text-sm mx-auto max-w-md;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  @apply flex space-x-1 px-4 py-2;
+}
+
+.typing-dot {
+  @apply w-2 h-2 bg-dark-text-muted rounded-full animate-pulse;
+  animation-delay: var(--delay, 0ms);
+}
+
+.typing-dot:nth-child(2) {
+  --delay: 150ms;
+}
+
+.typing-dot:nth-child(3) {
+  --delay: 300ms;
+}
+
+/* Code Blocks */
+.prose-dark {
+  @apply prose prose-invert max-w-none;
+}
+
+.prose-dark pre {
+  @apply bg-gray-900 border border-gray-700;
+}
+
+.prose-dark code {
+  @apply bg-gray-800 text-gray-200 px-1 py-0.5 rounded text-sm;
+}
+
+.prose-dark blockquote {
+  @apply border-l-primary-500 bg-primary-500/5 text-dark-text-secondary;
+}
+
+/* Loading States */
+.loading-skeleton {
+  @apply bg-gray-700 animate-pulse rounded;
+}
+
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Responsive Design Helpers */
+.container-responsive {
+  @apply container mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.grid-responsive {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6;
+}
+
+/* Accessibility */
+.sr-only {
+  @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
+  clip: rect(0, 0, 0, 0);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .card {
+    @apply border-2;
+  }
+  
+  .btn-primary {
+    @apply border-2 border-primary-400;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    @apply bg-white text-black;
+  }
+  
+  .card {
+    @apply bg-white border-gray-300;
+  }
+}

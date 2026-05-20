@@ -1,0 +1,440 @@
+{
+  "schema": 1,
+  "applicationInfo": {
+    "name": "Threat Model Export",
+    "description": "AWS Pricing Assistant: a public-facing AI chatbot reference implementation that helps customers estimate AWS service costs and Savings Plans. Bedrock Converse API (Claude Opus 4.6 / Sonnet 4.5 via cross-region inference) drives a tool-using agent backed by AWS Pricing API and Savings Plans API. Frontend (nginx/React) and Backend (Node.js/Express+WebSocket) run as ECS Fargate services in private subnets behind an internal ALB locked to the CloudFront prefix list. CloudFront+WAF (us-east-1) front the public domain. Defense-in-depth: WAF rate limits, Express limiters, per-WS chat caps, 100-client WS cap, Bedrock Guardrails, and an AWS Budget hard cap with auto-deny policy. No PII stored; conversation history is in-memory only; uploaded infrastructure files (CFN/Terraform/CDK) live in S3 with a 7-day lifecycle. Optional Cognito auth toggled by an AuthEnabled CFN flag — when on: admin-managed users, FIDO2 passkeys (NIST AAL2), optional/mandatory TOTP MFA, JWT validation on REST and WebSocket. A reference deployment is available at the configured domain (us-west-2). Deployed via 10 CFN stacks under GitOps CodePipeline."
+  },
+  "architecture": {
+    "description": ""
+  },
+  "dataflow": {
+    "description": ""
+  },
+  "assumptions": [
+    {
+      "id": "A001",
+      "numericId": 1,
+      "content": "System operates in AWS us-west-2 as primary region with us-east-1 for CloudFront WAF and ACM certificates. 10 CloudFormation stacks managed via GitOps CodePipeline.",
+      "displayOrder": 1,
+      "metadata": []
+    },
+    {
+      "id": "A002",
+      "numericId": 2,
+      "content": "No PII or sensitive customer data is stored. Infrastructure file uploads (CFN/Terraform/CDK only) have a 7-day S3 lifecycle. Conversation history is in-memory only and bounded by an LRU cap of 1000 conversations.",
+      "displayOrder": 2,
+      "metadata": []
+    },
+    {
+      "id": "A003",
+      "numericId": 3,
+      "content": "Bedrock Guardrails (content filtering, topic boundary, prompt-attack detection, PII blocking) and AWS-pricing-only system prompt provide content filtering for inappropriate inputs and off-topic queries.",
+      "displayOrder": 3,
+      "metadata": []
+    },
+    {
+      "id": "A004",
+      "numericId": 4,
+      "content": "Architecture uses ECS Fargate in private subnets, ALB locked to CloudFront prefix list pl-82a045eb, S3 for temp uploads, Bedrock for LLM, Pricing/Savings Plans APIs as agent tools. 10 CFN stacks deployed via GitOps.",
+      "displayOrder": 4,
+      "metadata": []
+    },
+    {
+      "id": "A005",
+      "numericId": 5,
+      "content": "Conversation history is in-memory only (no DB). Uploaded infrastructure files are limited to CloudFormation/Terraform/CDK formats and expire after 7 days via S3 lifecycle. No PII in any storage path.",
+      "displayOrder": 5,
+      "metadata": []
+    },
+    {
+      "id": "A006",
+      "numericId": 6,
+      "content": "All dependencies are patched against known CVEs (probe scans clean). Containers run as non-root. IAM roles are scoped (no wildcard service:* or iam:* actions). CodePipeline is the only path to production.",
+      "displayOrder": 6,
+      "metadata": []
+    },
+    {
+      "id": "A007",
+      "numericId": 7,
+      "content": "Optional Cognito auth via AuthEnabled CFN parameter (default false). When true: admin-managed users, FIDO2 passkeys (NIST AAL2), optional/mandatory TOTP MFA, JWT validation on REST and WebSocket, Admins group gates /api/admin/*.",
+      "displayOrder": 7,
+      "metadata": []
+    },
+    {
+      "id": "A008",
+      "numericId": 8,
+      "content": "Auth-mode threat deltas: account takeover mitigated by passkeys + optional MFA + 60-min token TTLs + AdminUserGlobalSignOut. XSS token theft mitigated by Helmet CSP + React escaping. Cognito availability tolerated via cached sessions. Invite/temp-pwd email via SES + DKIM.",
+      "displayOrder": 8,
+      "metadata": []
+    },
+    {
+      "id": "A009",
+      "numericId": 9,
+      "content": "Residual risk acceptance: cost-amplification (Bedrock spend) is the primary residual concern; the AWS Budget hard cap with auto-deny policy bounds maximum exposure to the budget threshold per month.",
+      "displayOrder": 9,
+      "metadata": []
+    }
+  ],
+  "mitigations": [
+    {
+      "id": "5349a8d3-bfcb-4b5b-b661-7d893c71773e",
+      "numericId": 1,
+      "status": "mitigationResolved",
+      "content": "File-upload validation: 10 MB size cap, MIME-type allowlist (CFN/Terraform/CDK), malicious-pattern scan, UUID-based naming, parser sandbox, SSE-S3, 7-day lifecycle",
+      "displayOrder": 1,
+      "metadata": []
+    },
+    {
+      "id": "fffadd67-2639-489a-a762-a99f5cb66bea",
+      "numericId": 2,
+      "status": "mitigationResolved",
+      "content": "Layered cost+rate controls: WAF rate limits (2000/5min general, 1000/5min /api, 50/5min /ws/*), Express limiters (100/min /api, 50/min /api/chat), per-WS chat caps (30/min, 200/day), 100-client WS cap, AWS Budget hard cap with auto-deny policy on Bedrock invoke",
+      "displayOrder": 2,
+      "metadata": []
+    },
+    {
+      "id": "e3bd9a4a-eab5-4436-b357-4f7294b78613",
+      "numericId": 3,
+      "status": "mitigationResolved",
+      "content": "Bedrock Guardrails (content/topic/prompt-attack/PII filters) plus AWS-pricing-only system prompt and version-pinning automation",
+      "displayOrder": 3,
+      "metadata": []
+    },
+    {
+      "id": "3ccb42f6-38b1-45fe-8232-b13f7f48b836",
+      "numericId": 4,
+      "status": "mitigationResolved",
+      "content": "CloudWatch Logs encryption + 7-day retention + truncated-prompt logging + no PII stored + in-memory conversation only",
+      "displayOrder": 4,
+      "metadata": []
+    },
+    {
+      "id": "57b026f7-9aec-451d-b4e2-504c2679b448",
+      "numericId": 5,
+      "status": "mitigationResolved",
+      "content": "ALB security group restricted to CloudFront prefix list (pl-82a045eb); ALB host-header check enforced",
+      "displayOrder": 5,
+      "metadata": []
+    },
+    {
+      "id": "a9d76a53-8a5c-493f-ba45-32c341b7fe79",
+      "numericId": 6,
+      "status": "mitigationResolved",
+      "content": "Scoped IAM task role (no wildcard service:* or iam:*), non-root containers, ECS in private subnets, patched dependencies, IMDSv2 only",
+      "displayOrder": 6,
+      "metadata": []
+    },
+    {
+      "id": "8a9f4786-64ee-456e-a501-169df7800b17",
+      "numericId": 7,
+      "status": "mitigationResolved",
+      "content": "Cognito hardening when AuthEnabled: FIDO2/WebAuthn passkeys (NIST AAL2), optional/mandatory TOTP MFA, 60-min token TTL, AdminUserGlobalSignOut, Helmet CSP + React escaping to mitigate XSS-driven token theft",
+      "displayOrder": 7,
+      "metadata": []
+    },
+    {
+      "id": "dfac1d50-321b-40eb-a731-19407fa2e2fa",
+      "numericId": 8,
+      "status": "mitigationResolved",
+      "content": "WebSocket amplification controls: per-client chat caps (30/min, 200/day) enforced post-upgrade in WebSocketService.checkChatRateLimit, 100 concurrent client cap, AWS Budget hard cap as backstop",
+      "displayOrder": 8,
+      "metadata": []
+    },
+    {
+      "id": "676a5b4a-cc3e-4387-bf68-0a61c5155302",
+      "numericId": 9,
+      "status": "mitigationResolved",
+      "content": "GitOps governance for production changes: CodePipeline as the only deploy path, CFN change-set review, IAM-role-per-stage, MFA on admin identities, CloudTrail audit",
+      "displayOrder": 9,
+      "metadata": []
+    },
+    {
+      "id": "03904e76-0277-46e5-a802-c252c3070196",
+      "numericId": 10,
+      "status": "mitigationResolved",
+      "content": "Tool-call governance: Pricing/Savings Plans API calls bounded by per-message rate caps and Bedrock tool-use limits in bedrockToolService; CloudWatch alarms on throttle metrics",
+      "displayOrder": 10,
+      "metadata": []
+    }
+  ],
+  "assumptionLinks": [],
+  "mitigationLinks": [
+    {
+      "linkedId": "b5773400-0e85-4e98-a28a-44656e887b09",
+      "mitigationId": "5349a8d3-bfcb-4b5b-b661-7d893c71773e"
+    },
+    {
+      "linkedId": "4e5b8d3f-5fbb-4dd3-b9a8-9200aa78e7d3",
+      "mitigationId": "fffadd67-2639-489a-a762-a99f5cb66bea"
+    },
+    {
+      "linkedId": "4e5b8d3f-5fbb-4dd3-b9a8-9200aa78e7d3",
+      "mitigationId": "e3bd9a4a-eab5-4436-b357-4f7294b78613"
+    },
+    {
+      "linkedId": "4e5b8d3f-5fbb-4dd3-b9a8-9200aa78e7d3",
+      "mitigationId": "dfac1d50-321b-40eb-a731-19407fa2e2fa"
+    },
+    {
+      "linkedId": "2ff689a7-38ae-4fa4-a286-edac777167b8",
+      "mitigationId": "e3bd9a4a-eab5-4436-b357-4f7294b78613"
+    },
+    {
+      "linkedId": "2ff689a7-38ae-4fa4-a286-edac777167b8",
+      "mitigationId": "fffadd67-2639-489a-a762-a99f5cb66bea"
+    },
+    {
+      "linkedId": "36876bc8-67a0-4ebf-a418-cfffcbde773b",
+      "mitigationId": "3ccb42f6-38b1-45fe-8232-b13f7f48b836"
+    },
+    {
+      "linkedId": "69dce64e-5690-4bdc-9bef-c45474541138",
+      "mitigationId": "57b026f7-9aec-451d-b4e2-504c2679b448"
+    },
+    {
+      "linkedId": "d68a7656-9af2-4639-9409-399b7960f8b7",
+      "mitigationId": "a9d76a53-8a5c-493f-ba45-32c341b7fe79"
+    },
+    {
+      "linkedId": "b88d091f-c6a9-4705-9ed9-16d2dcecfa3f",
+      "mitigationId": "8a9f4786-64ee-456e-a501-169df7800b17"
+    },
+    {
+      "linkedId": "83cd673d-3031-4245-9bee-930f53bbd088",
+      "mitigationId": "dfac1d50-321b-40eb-a731-19407fa2e2fa"
+    },
+    {
+      "linkedId": "83cd673d-3031-4245-9bee-930f53bbd088",
+      "mitigationId": "fffadd67-2639-489a-a762-a99f5cb66bea"
+    },
+    {
+      "linkedId": "dc428fa1-a0cb-4c66-ac62-5acfd9b72e8e",
+      "mitigationId": "676a5b4a-cc3e-4387-bf68-0a61c5155302"
+    },
+    {
+      "linkedId": "dc428fa1-a0cb-4c66-ac62-5acfd9b72e8e",
+      "mitigationId": "a9d76a53-8a5c-493f-ba45-32c341b7fe79"
+    },
+    {
+      "linkedId": "9dea6f43-2e8a-4c2f-aa19-f79c23cbcb97",
+      "mitigationId": "03904e76-0277-46e5-a802-c252c3070196"
+    },
+    {
+      "linkedId": "9dea6f43-2e8a-4c2f-aa19-f79c23cbcb97",
+      "mitigationId": "fffadd67-2639-489a-a762-a99f5cb66bea"
+    }
+  ],
+  "threats": [
+    {
+      "id": "b5773400-0e85-4e98-a28a-44656e887b09",
+      "numericId": 1,
+      "threatSource": "External Attacker",
+      "prerequisites": "able to upload files via the public chat UI",
+      "threatAction": "upload malicious files containing code-injection or path-traversal payloads",
+      "threatImpact": "code execution, data exfiltration, or parser exploitation in backend",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A003"
+      ],
+      "statement": "A External Attacker able to upload files via the public chat UI can upload malicious files containing code-injection or path-traversal payloads, which leads to code execution, data exfiltration, or parser exploitation in backend",
+      "displayOrder": 1,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-T",
+        "File Upload"
+      ],
+      "metadata": []
+    },
+    {
+      "id": "4e5b8d3f-5fbb-4dd3-b9a8-9200aa78e7d3",
+      "numericId": 2,
+      "threatSource": "Script Kiddie",
+      "prerequisites": "with internet access and the public URL",
+      "threatAction": "flood Bedrock invocations to drive cost or exhaust quota",
+      "threatImpact": "unexpected AWS charges and degraded service for legitimate users",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A005"
+      ],
+      "statement": "A Script Kiddie with internet access and the public URL can flood Bedrock invocations to drive cost or exhaust quota, which leads to unexpected AWS charges and degraded service for legitimate users",
+      "displayOrder": 2,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-D",
+        "API Abuse",
+        "Cost"
+      ],
+      "metadata": []
+    },
+    {
+      "id": "2ff689a7-38ae-4fa4-a286-edac777167b8",
+      "numericId": 3,
+      "threatSource": "Prompt-Injection Attacker",
+      "prerequisites": "with knowledge of LLM jailbreak techniques",
+      "threatAction": "craft prompts that bypass Guardrails, manipulate tool calls, or extract the system prompt",
+      "threatImpact": "unauthorized tool invocations, system-prompt disclosure, or off-topic AI behavior",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A001",
+        "A002",
+        "A005"
+      ],
+      "statement": "A Prompt-Injection Attacker with knowledge of LLM jailbreak techniques can craft prompts that bypass Guardrails, manipulate tool calls, or extract the system prompt, which leads to unauthorized tool invocations, system-prompt disclosure, or off-topic AI behavior",
+      "displayOrder": 3,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-E",
+        "Prompt Injection",
+        "LLM"
+      ],
+      "metadata": []
+    },
+    {
+      "id": "36876bc8-67a0-4ebf-a418-cfffcbde773b",
+      "numericId": 4,
+      "threatSource": "External Attacker",
+      "prerequisites": "with read access to CloudWatch or to a backup of logs",
+      "threatAction": "read conversation logs containing user queries and infrastructure-file metadata",
+      "threatImpact": "exposure of user infrastructure details and pricing-query usage patterns",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A001",
+        "A004"
+      ],
+      "statement": "A External Attacker with read access to CloudWatch or to a backup of logs can read conversation logs containing user queries and infrastructure-file metadata, which leads to exposure of user infrastructure details and pricing-query usage patterns",
+      "displayOrder": 4,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-I",
+        "Logging"
+      ],
+      "metadata": []
+    },
+    {
+      "id": "69dce64e-5690-4bdc-9bef-c45474541138",
+      "numericId": 5,
+      "threatSource": "External Attacker",
+      "prerequisites": "able to discover the ALB DNS or escape CloudFront prefix-list scoping",
+      "threatAction": "access the ALB directly, bypassing CloudFront and WAF protections",
+      "threatImpact": "bypass of rate limits, WAF rules, and DDoS protection",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A005"
+      ],
+      "statement": "A External Attacker able to discover the ALB DNS or escape CloudFront prefix-list scoping can access the ALB directly, bypassing CloudFront and WAF protections, which leads to bypass of rate limits, WAF rules, and DDoS protection",
+      "displayOrder": 5,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-S",
+        "Network",
+        "Bypass"
+      ],
+      "metadata": []
+    },
+    {
+      "id": "d68a7656-9af2-4639-9409-399b7960f8b7",
+      "numericId": 6,
+      "threatSource": "External Attacker",
+      "prerequisites": "with RCE on a backend container or container escape",
+      "threatAction": "read ECS task-metadata endpoint to steal IAM credentials",
+      "threatImpact": "unauthorized use of Bedrock, Pricing API, or S3 via stolen task creds",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A006"
+      ],
+      "statement": "A External Attacker with RCE on a backend container or container escape can read ECS task-metadata endpoint to steal IAM credentials, which leads to unauthorized use of Bedrock, Pricing API, or S3 via stolen task creds",
+      "displayOrder": 6,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-E",
+        "IAM",
+        "Credential Theft"
+      ],
+      "metadata": []
+    },
+    {
+      "id": "b88d091f-c6a9-4705-9ed9-16d2dcecfa3f",
+      "numericId": 7,
+      "threatSource": "External Attacker",
+      "prerequisites": "with the ability to phish a Cognito user (AuthEnabled=true)",
+      "threatAction": "capture Cognito tokens via reflected XSS or social engineering and replay them",
+      "threatImpact": "account takeover for the duration of the access-token TTL",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A007"
+      ],
+      "statement": "A External Attacker with the ability to phish a Cognito user (AuthEnabled=true) can capture Cognito tokens via reflected XSS or social engineering and replay them, which leads to account takeover for the duration of the access-token TTL",
+      "displayOrder": 7,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-S",
+        "Auth",
+        "Token Theft"
+      ],
+      "metadata": []
+    },
+    {
+      "id": "83cd673d-3031-4245-9bee-930f53bbd088",
+      "numericId": 8,
+      "threatSource": "External Attacker",
+      "prerequisites": "authenticated user holding a valid Cognito access token",
+      "threatAction": "open many WebSocket connections to bypass rate caps and amplify Bedrock spend",
+      "threatImpact": "cost amplification despite per-client limits; budget cap then auto-denies",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A005"
+      ],
+      "statement": "A External Attacker authenticated user holding a valid Cognito access token can open many WebSocket connections to bypass rate caps and amplify Bedrock spend, which leads to cost amplification despite per-client limits; budget cap then auto-denies",
+      "displayOrder": 8,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-D",
+        "WebSocket",
+        "Cost"
+      ],
+      "metadata": []
+    },
+    {
+      "id": "dc428fa1-a0cb-4c66-ac62-5acfd9b72e8e",
+      "numericId": 9,
+      "threatSource": "Privileged User",
+      "prerequisites": "CodePipeline or admin IAM access to deploy",
+      "threatAction": "deploy a CFN change that weakens Guardrails, removes the budget cap, or opens the ALB SG",
+      "threatImpact": "durable security regression undermining multiple defenses at once",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A008",
+        "A005"
+      ],
+      "statement": "A Privileged User CodePipeline or admin IAM access to deploy can deploy a CFN change that weakens Guardrails, removes the budget cap, or opens the ALB SG, which leads to durable security regression undermining multiple defenses at once",
+      "displayOrder": 9,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-T",
+        "Insider",
+        "GitOps"
+      ],
+      "metadata": []
+    },
+    {
+      "id": "9dea6f43-2e8a-4c2f-aa19-f79c23cbcb97",
+      "numericId": 10,
+      "threatSource": "External Attacker",
+      "prerequisites": "with valid session and ability to issue tool-call-ish prompts",
+      "threatAction": "induce the agent to issue extreme volumes of Pricing/Savings Plans API calls",
+      "threatImpact": "throttling on AWS Pricing API and degraded service for legitimate users",
+      "impactedGoal": [],
+      "impactedAssets": [
+        "A002"
+      ],
+      "statement": "A External Attacker with valid session and ability to issue tool-call-ish prompts can induce the agent to issue extreme volumes of Pricing/Savings Plans API calls, which leads to throttling on AWS Pricing API and degraded service for legitimate users",
+      "displayOrder": 10,
+      "status": "threatResolved",
+      "tags": [
+        "STRIDE-D",
+        "Tool Abuse"
+      ],
+      "metadata": []
+    }
+  ]
+}
