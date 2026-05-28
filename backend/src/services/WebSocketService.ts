@@ -365,12 +365,13 @@ export class WebSocketService {
         try {
           const uploadsDir = path.join(process.cwd(), 'uploads');
           const fileData: Array<{resources: any[], fileName: string}> = [];
-          
+          const rawFiles: Array<{content: string, fileName: string, fileType: string, parseErrors: string[]}> = [];
+
           for (const currentFileId of allFileIds) {
             try {
               let metadata;
               let fileContent;
-              
+
               if (config.s3.useS3) {
                 // Use S3Service
                 metadata = await s3Service.getMetadata(currentFileId);
@@ -380,57 +381,93 @@ export class WebSocketService {
                 const metadataPath = path.join(uploadsDir, `${currentFileId}.meta.json`);
                 const metadataContent = await fs.readFile(metadataPath, 'utf-8');
                 metadata = JSON.parse(metadataContent);
-                
+
                 const filePath = path.join(uploadsDir, `${currentFileId}${metadata.fileExtension}`);
                 fileContent = await fs.readFile(filePath);
               }
-              
+
               logger.info('Attempting to process file for cost estimation', {
                 fileId: currentFileId,
                 storage: config.s3.useS3 ? 'S3' : 'local',
                 originalName: metadata.originalName
               });
-              
-              const parseResult = parseInfrastructureFile(metadata.originalName, fileContent.toString());
-              
+
+              const fileContentStr = fileContent.toString();
+              const parseResult = await parseInfrastructureFile(metadata.originalName, fileContentStr);
+
               if (parseResult.resources.length > 0) {
                 fileData.push({
                   resources: parseResult.resources,
                   fileName: metadata.originalName
                 });
-                
+
                 logger.info('Added file data for combined cost estimation', {
                   fileId: currentFileId,
                   fileName: metadata.originalName,
                   resourceCount: parseResult.resources.length
                 });
               } else {
-                logger.warn('No resources found in parsed file', {
+                // Raw-content fallback so HCL files where the structured
+                // parser produces zero resources still reach the model.
+                const MAX_RAW_BYTES = 200 * 1024;
+                const truncated = fileContentStr.length > MAX_RAW_BYTES;
+                rawFiles.push({
+                  content: truncated ? fileContentStr.slice(0, MAX_RAW_BYTES) : fileContentStr,
+                  fileName: metadata.originalName,
+                  fileType: parseResult.fileType,
+                  parseErrors: parseResult.errors,
+                });
+                logger.info('Falling back to raw content for file', {
                   fileId: currentFileId,
                   fileName: metadata.originalName,
-                  parseErrors: parseResult.errors
+                  fileType: parseResult.fileType,
+                  parseErrors: parseResult.errors,
+                  truncated,
                 });
               }
             } catch (error) {
-              logger.warn('Failed to process individual file for cost estimation in WebSocket', { 
-                fileId: currentFileId, 
+              logger.warn('Failed to process individual file for cost estimation in WebSocket', {
+                fileId: currentFileId,
                 error: error instanceof Error ? error.message : error,
                 stack: error instanceof Error ? error.stack : undefined
               });
             }
           }
-          
+
+          const sections: string[] = [];
+
           if (fileData.length > 0) {
-            const combinedPrompt = fileData.length > 1 
-              ? generateCombinedCostEstimationPrompt(fileData)
-              : generateCostEstimationPrompt(fileData[0].resources, fileData[0].fileName);
-            
-            processedMessage = `${userMessage}\n\n${combinedPrompt}`;
-            
+            sections.push(
+              fileData.length > 1
+                ? generateCombinedCostEstimationPrompt(fileData)
+                : generateCostEstimationPrompt(fileData[0].resources, fileData[0].fileName),
+            );
+          }
+
+          if (rawFiles.length > 0) {
+            const rawSection = rawFiles
+              .map((f) => {
+                const lower = f.fileName.toLowerCase();
+                const lang = lower.endsWith('.tf') ? 'hcl'
+                  : lower.endsWith('.yaml') || lower.endsWith('.yml') ? 'yaml'
+                  : lower.endsWith('.json') ? 'json'
+                  : '';
+                return `--- ${f.fileName} (${f.fileType}) ---\n\`\`\`${lang}\n${f.content}\n\`\`\``;
+              })
+              .join('\n\n');
+            sections.push(
+              `The following infrastructure files were uploaded but the structured parser did not extract resources from them. Please read the raw source below directly, identify all AWS resources, and provide a monthly cost estimate using the getPricing tool for each resource. Default to us-east-1 if no region is specified.\n\n${rawSection}`,
+            );
+          }
+
+          if (sections.length > 0) {
+            processedMessage = `${userMessage}\n\n${sections.join('\n\n')}`;
+
             logger.info('Generated combined cost estimation prompt for WebSocket', {
               totalFiles: allFileIds.length,
-              processedFiles: fileData.length,
-              usedCombinedPrompt: fileData.length > 1
+              structuredFiles: fileData.length,
+              rawFallbackFiles: rawFiles.length,
+              usedCombinedPrompt: fileData.length > 1,
             });
           }
         } catch (error) {

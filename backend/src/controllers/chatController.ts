@@ -22,46 +22,91 @@ function setConversation(id: string, history: BedrockToolMessage[]) {
   conversations.set(id, history);
 }
 
-// Helper function to process multiple files for cost estimation
+// Helper function to process multiple files for cost estimation. Files where
+// the structured parser extracts at least one resource go down the
+// resource-list prompt path; files that parse to zero resources (e.g. an HCL
+// .tf with only providers/locals, or any format the parser can't yet handle)
+// fall through to a raw-content path so the model still sees the source and
+// can analyze it directly. This closes a silent-drop bug where uploaded .tf
+// files looked successful in the UI but never reached Bedrock.
 async function processFilesForCostEstimation(fileIds: string[]): Promise<string> {
   if (fileIds.length === 0) return '';
-  
+
   const uploadsDir = path.join(process.cwd(), 'uploads');
   const fileData: Array<{resources: any[], fileName: string}> = [];
-  
+  const rawFiles: Array<{content: string, fileName: string, fileType: string, parseErrors: string[]}> = [];
+
   for (const fileId of fileIds) {
     try {
       const metadataPath = path.join(uploadsDir, `${fileId}.meta.json`);
       const metadataContent = await fs.readFile(metadataPath, 'utf-8');
       const metadata = JSON.parse(metadataContent);
-      
+
       const fileContent = await fs.readFile(metadata.filePath, 'utf-8');
-      const parseResult = parseInfrastructureFile(metadata.originalName, fileContent);
-      
+      const parseResult = await parseInfrastructureFile(metadata.originalName, fileContent);
+
       if (parseResult.resources.length > 0) {
         fileData.push({
           resources: parseResult.resources,
-          fileName: metadata.originalName
+          fileName: metadata.originalName,
         });
-        
         logger.info('Processed file for cost estimation', {
           fileId,
           fileName: metadata.originalName,
-          resourceCount: parseResult.resources.length
+          resourceCount: parseResult.resources.length,
+        });
+      } else {
+        // Parser returned no structured resources — send raw content so the
+        // model can still reason over the file. Cap the body at 200KB to
+        // protect the prompt budget; well above any realistic .tf / .yaml.
+        const MAX_RAW_BYTES = 200 * 1024;
+        const truncated = fileContent.length > MAX_RAW_BYTES;
+        rawFiles.push({
+          content: truncated ? fileContent.slice(0, MAX_RAW_BYTES) : fileContent,
+          fileName: metadata.originalName,
+          fileType: parseResult.fileType,
+          parseErrors: parseResult.errors,
+        });
+        logger.info('Falling back to raw content for file', {
+          fileId,
+          fileName: metadata.originalName,
+          fileType: parseResult.fileType,
+          parseErrors: parseResult.errors,
+          truncated,
         });
       }
     } catch (error) {
       logger.warn('Failed to process file for cost estimation', { fileId, error });
     }
   }
-  
-  if (fileData.length === 0) return '';
-  
-  const prompt = fileData.length > 1 
-    ? generateCombinedCostEstimationPrompt(fileData)
-    : generateCostEstimationPrompt(fileData[0].resources, fileData[0].fileName);
-  
-  return `\n\nFile Analysis Context:\n${prompt}`;
+
+  const sections: string[] = [];
+
+  if (fileData.length > 0) {
+    sections.push(
+      fileData.length > 1
+        ? generateCombinedCostEstimationPrompt(fileData)
+        : generateCostEstimationPrompt(fileData[0].resources, fileData[0].fileName),
+    );
+  }
+
+  if (rawFiles.length > 0) {
+    const rawSection = rawFiles
+      .map((f) => {
+        const lang = f.fileName.toLowerCase().endsWith('.tf') ? 'hcl'
+          : f.fileName.toLowerCase().endsWith('.yaml') || f.fileName.toLowerCase().endsWith('.yml') ? 'yaml'
+          : f.fileName.toLowerCase().endsWith('.json') ? 'json'
+          : '';
+        return `--- ${f.fileName} (${f.fileType}) ---\n\`\`\`${lang}\n${f.content}\n\`\`\``;
+      })
+      .join('\n\n');
+    sections.push(
+      `The following infrastructure files were uploaded but the structured parser did not extract resources from them. Please read the raw source below directly, identify all AWS resources, and provide a monthly cost estimate using the getPricing tool for each resource. Default to us-east-1 if no region is specified.\n\n${rawSection}`,
+    );
+  }
+
+  if (sections.length === 0) return '';
+  return `\n\nFile Analysis Context:\n${sections.join('\n\n')}`;
 }
 
 /**

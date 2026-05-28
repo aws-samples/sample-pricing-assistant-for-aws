@@ -474,8 +474,8 @@ export const parseFile = async (req: Request, res: Response): Promise<void> => {
       await assertPathInsideUploads(metadata.filePath);
 
       const fileContent = await fs.readFile(metadata.filePath, 'utf-8');
-      const parseResult = parseInfrastructureFile(metadata.originalName, fileContent);
-      
+      const parseResult = await parseInfrastructureFile(metadata.originalName, fileContent);
+
       logger.info('File parsed successfully', {
         fileId,
         fileType: parseResult.fileType,
@@ -525,8 +525,8 @@ export const estimateFileCost = async (req: Request, res: Response): Promise<voi
       await assertPathInsideUploads(metadata.filePath);
 
       const fileContent = await fs.readFile(metadata.filePath, 'utf-8');
-      const parseResult = parseInfrastructureFile(metadata.originalName, fileContent);
-      
+      const parseResult = await parseInfrastructureFile(metadata.originalName, fileContent);
+
       if (parseResult.errors.length > 0) {
         res.status(400).json({ 
           error: 'Cannot estimate cost for file with parsing errors',

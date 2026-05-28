@@ -7,7 +7,7 @@ export interface FileParseResult extends ParseResult {
   fileType: string;
 }
 
-export function parseInfrastructureFile(filename: string, content: string): FileParseResult {
+export async function parseInfrastructureFile(filename: string, content: string): Promise<FileParseResult> {
   const ext = filename.toLowerCase();
   
   // CDK TypeScript source files
@@ -35,10 +35,14 @@ export function parseInfrastructureFile(filename: string, content: string): File
     return { ...result, fileType: 'CDK Synthesized' };
   }
   
-  // Terraform configuration
-  if ((ext.endsWith('.tf') || ext.endsWith('.json')) && 
-      (content.includes('resource ') || content.includes('"resource"'))) {
-    const result = parseTerraform(content);
+  // Terraform configuration. Native HCL (`.tf`) is parsed via @cdktf/hcl2json;
+  // Terraform JSON syntax (`.tf.json` and rare `.json`) parses directly. We
+  // also accept `.tfvars` here so plumbed files don't silently drop — the
+  // parser will return errors (no `resource` block) which the chat controller
+  // surfaces upstream.
+  if (ext.endsWith('.tf') || ext.endsWith('.tfvars') ||
+      (ext.endsWith('.json') && (content.includes('resource ') || content.includes('"resource"')))) {
+    const result = await parseTerraform(content);
     return { ...result, fileType: 'Terraform' };
   }
   
