@@ -1,6 +1,9 @@
 # Multi-stage build for React frontend
 FROM public.ecr.aws/docker/library/node:20-alpine AS builder
 
+# Apply Alpine security updates to base image layer
+RUN apk update && apk upgrade --no-cache
+
 WORKDIR /app
 
 # Copy package files
@@ -18,6 +21,9 @@ RUN npm run build:prod
 
 # Production stage
 FROM public.ecr.aws/nginx/nginx:alpine
+
+# Apply Alpine security updates to base image layer
+RUN apk update && apk upgrade --no-cache
 
 # Install curl for health checks
 RUN apk add --no-cache curl

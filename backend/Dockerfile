@@ -1,6 +1,9 @@
 # Node.js backend Dockerfile
 FROM public.ecr.aws/docker/library/node:20-alpine
 
+# Apply Alpine security updates to base image layer
+RUN apk update && apk upgrade --no-cache
+
 WORKDIR /app
 
 # Install curl for health checks
