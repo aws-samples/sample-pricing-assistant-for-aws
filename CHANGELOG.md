@@ -5,6 +5,24 @@ All notable changes to the AWS Pricing Assistant project will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> Public releases on `aws-samples` follow their own `v1.x.y` tag track, independent of the internal version numbers above. Entries below are labeled with the public tag where they map to an aws-samples release.
+
+## [v1.1.2] - 2026-07-06 - Container and Dependency Security Updates (public tag)
+
+Published to aws-samples as tag `v1.1.2` (public tip `6d8aec5`).
+
+### 🔐 Dependency Security Fixes
+- `vite` 7.3.5 → 7.3.6 (frontend)
+- `@babel/core` → 7.29.7 (transitive): fixes GHSA-4x5r-pxfx-6jf8
+- `esbuild` → 0.28.1 (transitive via vite): fixes GHSA-g7r4-m6w7-qqqr
+- `npm audit` now reports 0 vulnerabilities across the frontend and backend workspaces
+
+### 🐳 Container Base-Image Security Updates
+- `frontend/Dockerfile`: `apk update && apk upgrade` in the `nginx:alpine` runtime and `node:20-alpine` builder stages
+- `backend/Dockerfile`: `apk update && apk upgrade` in the `node:20-alpine` base
+- Applies Alpine security updates at build time (recent examples: expat 2.7.5 → 2.8.2, openssl 3.5.6 → 3.5.7)
+- Note: the Dockerfile `apk` layers were already present on the previous public tip (`b0b3419`), so this publish carried no net Dockerfile diff — the changes are documented here for release-notes completeness.
+
 ## [3.0.0] - 2026-05-18 - Open-Source Release
 
 ### 🌐 Public Release on aws-samples
