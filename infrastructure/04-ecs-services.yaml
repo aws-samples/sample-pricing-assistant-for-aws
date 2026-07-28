@@ -241,12 +241,12 @@ Resources:
               Value: '3001'
             - Name: FRONTEND_ORIGIN
               Value: !Sub https://${DomainName}
-            # Inference Profile for Sonnet 4.5
-            - Name: BEDROCK_INFERENCE_PROFILE_SONNET45_ARN
-              Value: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
-            # Inference Profile for Opus 4.6
-            - Name: BEDROCK_INFERENCE_PROFILE_OPUS46_ARN
-              Value: 'us.anthropic.claude-opus-4-6-v1'
+            # Inference Profile for Sonnet 5
+            - Name: BEDROCK_INFERENCE_PROFILE_SONNET_ARN
+              Value: 'us.anthropic.claude-sonnet-5'
+            # Inference Profile for Opus 5
+            - Name: BEDROCK_INFERENCE_PROFILE_OPUS_ARN
+              Value: 'us.anthropic.claude-opus-5'
             # S3 Configuration
             - Name: S3_BUCKET_NAME
               Value: !Ref FileStorageBucket

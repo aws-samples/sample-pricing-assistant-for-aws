@@ -16,7 +16,7 @@ Cost figures returned by this application are AI-generated using foundation mode
 - 📁 **File Analysis**: Upload and analyze CloudFormation, Terraform, CDK files
 - 🔄 **Multiple Files**: Combined cost estimation for entire infrastructure
 - 🛡️ **Security**: File validation, content scanning, and secure uploads
-- ⚡ **Claude Opus 4.6**: Default model with advanced reasoning via CRIS inference profiles
+- ⚡ **Claude Opus 5**: Default model with advanced reasoning via CRIS inference profiles
 - 📱 **Mobile Responsive**: Optimized for all device sizes
 - 🔒 **CloudFront CDN**: Global edge caching with CloudFront prefix list security
 - 📈 **Comprehensive Monitoring**: CloudWatch dashboard with alerts and observability
@@ -58,7 +58,7 @@ drawio -x -f png -o docs/cicd-pipeline-architecture.png docs/cicd-pipeline-archi
 - **Frontend**: React app running on ECS Fargate (2 tasks)
 - **Backend**: Node.js API on ECS Fargate (2 tasks) 
 - **Load Balancer**: ALB with HTTPS-only listener, locked to CloudFront
-- **AI Processing**: Claude Opus 4.6 via Bedrock CRIS inference profiles (Sonnet 4.5 also available)
+- **AI Processing**: Claude Opus 5 via Bedrock CRIS inference profiles (Sonnet 5 also available)
 - **Conversation Memory**: Invisible history injection for better context continuity (10 messages vs 3)
 - **Pricing Data**: Converse API with inline tool use calling AWS Pricing API directly
 - **File Storage**: S3 bucket with 7-day lifecycle policy
@@ -413,7 +413,7 @@ aws-pricing-assistant/
 - **TypeScript** throughout
 
 ### AWS Services
-- **Amazon Bedrock** (Claude Opus 4.6 via inference profiles)
+- **Amazon Bedrock** (Claude Opus 5 via inference profiles)
 - **CloudFront** CDN with global edge caching
 - **Bedrock Agents** (legacy, removed in v2.5.0)
 - **AWS Pricing API** (built-in tools)

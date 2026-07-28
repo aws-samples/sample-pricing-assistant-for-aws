@@ -10,13 +10,13 @@ interface ModelSelectorProps {
 
 const AVAILABLE_MODELS = [
   {
-    id: 'us.anthropic.claude-opus-4-6-v1',
-    name: 'Claude Opus 4.6',
+    id: 'us.anthropic.claude-opus-5',
+    name: 'Claude Opus 5',
     description: 'Most capable model with advanced reasoning'
   },
   {
-    id: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
-    name: 'Claude Sonnet 4.5',
+    id: 'us.anthropic.claude-sonnet-5',
+    name: 'Claude Sonnet 5',
     description: 'Fast model with strong capabilities'
   }
 ];

@@ -85,10 +85,9 @@ export class BedrockService {
       const input: ConverseCommandInput = {
         modelId: this.modelId,
         messages,
+        // Sampling params (temperature/topP) removed — rejected by Claude Opus 5 / Sonnet 5
         inferenceConfig: {
           maxTokens: 10000,
-          temperature: 0.1, // Low temperature for consistent pricing responses
-          topP: 0.9,
         },
         ...(systemPrompt && {
           system: [{ text: systemPrompt }],

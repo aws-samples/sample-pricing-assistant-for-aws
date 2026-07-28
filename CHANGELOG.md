@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Public releases on `aws-samples` follow their own `v1.x.y` tag track, independent of the internal version numbers above. Entries below are labeled with the public tag where they map to an aws-samples release.
 
+## [v1.2.0] - 2026-07-28 - Claude Opus 5 / Sonnet 5 + Dependency Security Update (public tag)
+
+### 🤖 Model Update — Claude Opus 5 and Sonnet 5
+- Model dropdown updated to the latest of each family: **Claude Opus 5** (`us.anthropic.claude-opus-5`, default) and **Claude Sonnet 5** (`us.anthropic.claude-sonnet-5`), both via Bedrock cross-region inference profiles (verified ACTIVE in us-west-2)
+- Replaces Claude Opus 4.6 (`us.anthropic.claude-opus-4-6-v1`) and Claude Sonnet 4.5 (`us.anthropic.claude-sonnet-4-5-20250929-v1:0`)
+- Updated across `ModelSelector.tsx`, `useModel.tsx`, `bedrockToolService.ts`, `bedrockService.ts`, `config/index.ts`, `index.ts`, `04-ecs-services.yaml` (renamed env vars `BEDROCK_INFERENCE_PROFILE_{OPUS,SONNET}_ARN`), `06-monitoring.yaml` dashboard, README, threat model, and issue template
+- **Removed `temperature` and `topP` from Bedrock `inferenceConfig`** — Claude Opus 5 / Sonnet 5 reject sampling parameters (`temperature is deprecated for this model`). Both models verified end-to-end against the live Pricing API tool loop after removal
+- No fixed model-ID suffix on the new profiles (`claude-opus-5`, not a dated `-vN:0`), matching Anthropic's current CRIS naming
+
+### 🔐 Dependency Security Fixes
+- `axios` → 1.18.1 (frontend + backend): fixes 12 advisories incl. GHSA-gcfj-64vw-6mp9 (HIGH — inherited-proxy after interceptor clone), prototype-pollution and DoS advisories
+- `js-yaml` → 4.3.0: fixes GHSA-52cp-r559-cp3m (HIGH — quadratic CPU on YAML merge-key chains)
+- `morgan` → 1.11.0: fixes GHSA-4vj7-5mj6-jm8m (log forging via control chars in `:remote-user`)
+- `shell-quote` → 1.10.0 (override): fixes GHSA-395f-4hp3-45gv (HIGH — quadratic-complexity DoS in `parse()`)
+- `brace-expansion` → 5.0.8 (override): fixes GHSA-3jxr-9vmj-r5cp (HIGH) and GHSA-mh99-v99m-4gvg (OOM DoS)
+- `postcss` → 8.5.24 (via `npm audit fix`): fixes GHSA-r28c-9q8g-f849 (HIGH — path traversal in source-map auto-loading)
+- Removed unused `react-router-dom` dependency from the frontend (no router usage anywhere in `frontend/src`) — eliminates the react-router open-redirect/XSS advisory surface (GHSA-jjmj-jmhj-qwj2) entirely rather than pinning it
+- `npm audit` now reports **0 vulnerabilities** across all workspaces
+- Closes public Dependabot alerts for axios, brace-expansion, morgan, shell-quote, js-yaml, react-router-dom
+
+## [v1.1.3] - 2026-07-06 - Dependency Security Update (js-yaml) (public tag)
+
+Published to aws-samples as tag `v1.1.3` (public tip `3b805d1`).
+
+### 🔐 Dependency Security Fixes
+- `js-yaml` bumped to >= 3.15.0 (transitive via `@istanbuljs/load-nyc-config`, 3.14.2 → 3.15.0): fixes GHSA-h67p-54hq-rp68 (medium)
+- `npm audit` now reports 0 vulnerabilities across the affected workspaces
+- Dependabot alert #27 (js-yaml, GHSA-h67p-54hq-rp68) auto-closed on the public repo post-publish
+
 ## [v1.1.2] - 2026-07-06 - Container and Dependency Security Updates (public tag)
 
 Published to aws-samples as tag `v1.1.2` (public tip `6d8aec5`).
