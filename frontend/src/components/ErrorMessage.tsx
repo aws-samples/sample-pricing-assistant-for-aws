@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { useChat } from '../hooks/useChat';
+import { useChat } from '../hooks/chatContext';
 
 interface ErrorMessageProps {
   error: string;

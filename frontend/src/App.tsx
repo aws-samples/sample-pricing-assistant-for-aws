@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { ChatProvider } from './hooks/useChat';
-import { ThemeProvider, useTheme } from './hooks/useTheme';
+import { ThemeProvider } from './hooks/useTheme';
+import { useTheme } from './hooks/themeContext';
 import { ModelProvider } from './hooks/useModel';
-import { AuthProvider, useAuth } from './hooks/useAuth';
+import { AuthProvider } from './hooks/useAuth';
+import { useAuth } from './hooks/authContext';
 import ChatInterface from './components/ChatInterface';
 import Header from './components/Header';
 import Footer from './components/Footer';

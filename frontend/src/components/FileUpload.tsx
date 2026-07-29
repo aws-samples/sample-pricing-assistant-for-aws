@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import { useTheme } from '../hooks/useTheme';
-import { authFetch } from '../hooks/useAuth';
+import { useTheme } from '../hooks/themeContext';
+import { authFetch } from '../hooks/authContext';
 
 interface FileUploadProps {
   onFileUploaded: (fileData: UploadedFileData[]) => void;
@@ -24,6 +24,33 @@ interface UploadError {
   details?: string;
 }
 
+// Supported file extensions. Module-level: these are constants, so hoisting
+// them out of the component keeps validateFile referentially stable.
+const supportedExtensions = [
+  '.json', '.yaml', '.yml', '.tf', '.tfvars',
+  '.ts', '.js', '.py', '.go', '.cs'
+];
+
+// File validation. Pure function of its argument — no component state or props,
+// so it lives at module scope and needs no memoization.
+const validateFile = (file: File): { isValid: boolean; error?: string } => {
+  // Check file size (10MB limit)
+  if (file.size > 10 * 1024 * 1024) {
+    return { isValid: false, error: 'File size must be less than 10MB' };
+  }
+
+  // Check file extension
+  const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+  if (!supportedExtensions.includes(extension)) {
+    return {
+      isValid: false,
+      error: `Unsupported file type. Supported: ${supportedExtensions.join(', ')}`
+    };
+  }
+
+  return { isValid: true };
+};
+
 const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onClose, isOpen }) => {
   const { theme } = useTheme();
   const [isDragOver, setIsDragOver] = useState(false);
@@ -31,12 +58,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onClose, isOpen
   const [uploadError, setUploadError] = useState<UploadError | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<UploadedFileData[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Supported file extensions
-  const supportedExtensions = [
-    '.json', '.yaml', '.yml', '.tf', '.tfvars', 
-    '.ts', '.js', '.py', '.go', '.cs'
-  ];
 
   // Theme-aware classes
   const getThemeClasses = () => {
@@ -80,25 +101,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded, onClose, isOpen
   };
 
   const classes = getThemeClasses();
-
-  // File validation
-  const validateFile = (file: File): { isValid: boolean; error?: string } => {
-    // Check file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      return { isValid: false, error: 'File size must be less than 10MB' };
-    }
-
-    // Check file extension
-    const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!supportedExtensions.includes(extension)) {
-      return { 
-        isValid: false, 
-        error: `Unsupported file type. Supported: ${supportedExtensions.join(', ')}` 
-      };
-    }
-
-    return { isValid: true };
-  };
 
   // Upload file to backend
   const uploadFile = async (file: File): Promise<UploadedFileData> => {

@@ -1,102 +1,33 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Amplify } from 'aws-amplify';
 import {
   signIn as amplifySignIn,
   confirmSignIn as amplifyConfirmSignIn,
   signOut as amplifySignOut,
-  fetchAuthSession,
   associateWebAuthnCredential,
   listWebAuthnCredentials,
   deleteWebAuthnCredential,
-  type AuthWebAuthnCredential,
 } from 'aws-amplify/auth';
+import {
+  AuthContext,
+  refreshTokens,
+  tokenCache,
+  userFromIdToken,
+  type AuthChallenge,
+  type AuthContextValue,
+  type AuthUser,
+  type Passkey,
+  type RuntimeAuthConfig,
+} from './authContext';
 
-export type Passkey = AuthWebAuthnCredential;
-
-export interface RuntimeAuthConfig {
-  enabled: boolean;
-  userPoolId: string | null;
-  clientId: string | null;
-  region: string | null;
-}
-
-export interface AuthUser {
-  username: string;
-  email?: string;
-  name?: string;
-  groups: string[];
-  isAdmin: boolean;
-}
-
-type AuthChallenge =
-  | { type: 'NEW_PASSWORD_REQUIRED' }
-  | { type: 'SOFTWARE_TOKEN_MFA' }
-  | { type: 'MFA_SETUP'; secretCode: string };
-
-interface AuthContextValue {
-  config: RuntimeAuthConfig | null;
-  configLoading: boolean;
-  user: AuthUser | null;
-  pending: AuthChallenge | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  completeNewPassword: (newPassword: string) => Promise<void>;
-  submitMfaCode: (code: string) => Promise<void>;
-  completeMfaSetup: (code: string) => Promise<void>;
-  signInWithPasskey: (email: string) => Promise<void>;
-  registerPasskey: () => Promise<void>;
-  listPasskeys: () => Promise<Passkey[]>;
-  deletePasskey: (credentialId: string) => Promise<void>;
-  signOut: () => void;
-  getAccessToken: () => string | null;
-  getIdToken: () => string | null;
-}
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-const ADMIN_GROUP = 'Admins';
-
-// Amplify session tokens are async — cache the latest pair so authFetch /
-// buildWebSocketUrl can return them synchronously without re-awaiting on
-// every request. fetchAuthSession() refreshes them for us when expired.
-let cachedAccessToken: string | null = null;
-let cachedIdToken: string | null = null;
-
-async function refreshTokens(): Promise<void> {
-  try {
-    const session = await fetchAuthSession();
-    cachedAccessToken = session.tokens?.accessToken?.toString() ?? null;
-    cachedIdToken = session.tokens?.idToken?.toString() ?? null;
-  } catch {
-    cachedAccessToken = null;
-    cachedIdToken = null;
-  }
-}
-
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  try {
-    const [, payload] = token.split('.');
-    if (!payload) return {};
-    const padded = payload.replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(atob(padded));
-  } catch {
-    return {};
-  }
-}
-
-function userFromIdToken(idToken: string): AuthUser {
-  const payload = decodeJwtPayload(idToken);
-  const groups = (payload['cognito:groups'] as string[] | undefined) || [];
-  return {
-    username:
-      (payload['cognito:username'] as string) ||
-      (payload.email as string) ||
-      'user',
-    email: payload.email as string | undefined,
-    name: payload.name as string | undefined,
-    groups,
-    isAdmin: groups.includes(ADMIN_GROUP),
-  };
-}
+// The context object, the useAuth hook, the authFetch / buildWebSocketUrl
+// helpers, the shared token cache, and all auth types live in ./authContext so
+// that this file only exports a component — required for React Fast Refresh.
+// Import those from './hooks/authContext', not from here.
+//
+// The token cache in particular MUST stay colocated with authFetch /
+// buildWebSocketUrl: duplicating it here would give this module its own copy
+// and silently break bearer-token propagation.
 
 function configureAmplify(cfg: RuntimeAuthConfig): boolean {
   if (!cfg.enabled || !cfg.userPoolId || !cfg.clientId) return false;
@@ -148,21 +79,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!config) return;
     const ready = configureAmplify(config);
     if (!ready) {
-      cachedAccessToken = null;
-      cachedIdToken = null;
+      tokenCache.accessToken = null;
+      tokenCache.idToken = null;
       setUser(null);
       return;
     }
     // Hydrate any persisted session into our user state
     void (async () => {
       await refreshTokens();
-      if (cachedIdToken) setUser(userFromIdToken(cachedIdToken));
+      if (tokenCache.idToken) setUser(userFromIdToken(tokenCache.idToken));
     })();
   }, [config]);
 
   const finalizeSignedIn = useCallback(async () => {
     await refreshTokens();
-    if (cachedIdToken) setUser(userFromIdToken(cachedIdToken));
+    if (tokenCache.idToken) setUser(userFromIdToken(tokenCache.idToken));
     setPending(null);
   }, []);
 
@@ -273,8 +204,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void amplifySignOut().catch(() => {
       // ignore — signing out shouldn't block UI even if the call fails
     });
-    cachedAccessToken = null;
-    cachedIdToken = null;
+    tokenCache.accessToken = null;
+    tokenCache.idToken = null;
     setUser(null);
     setPending(null);
   }, []);
@@ -284,12 +215,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // We return the current cached value synchronously for callers that
     // need it inline (authFetch headers, WebSocket query string).
     void refreshTokens();
-    return cachedAccessToken;
+    return tokenCache.accessToken;
   }, []);
 
   const getIdToken = useCallback((): string | null => {
     void refreshTokens();
-    return cachedIdToken;
+    return tokenCache.idToken;
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
@@ -327,27 +258,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
-}
-
-/** Helper for fetch calls that need to include the bearer token. */
-export function authFetch(input: RequestInfo, init: RequestInit = {}): Promise<Response> {
-  // Refresh token cache eagerly; Amplify will rotate expiring tokens.
-  void refreshTokens();
-  const headers = new Headers(init.headers || {});
-  if (cachedAccessToken) headers.set('Authorization', `Bearer ${cachedAccessToken}`);
-  return fetch(input, { ...init, headers });
-}
-
-/** Build a WebSocket URL with the access token in the query string when auth is enabled. */
-export function buildWebSocketUrl(base: string): string {
-  void refreshTokens();
-  if (!cachedAccessToken) return base;
-  const sep = base.includes('?') ? '&' : '?';
-  return `${base}${sep}token=${encodeURIComponent(cachedAccessToken)}`;
 }

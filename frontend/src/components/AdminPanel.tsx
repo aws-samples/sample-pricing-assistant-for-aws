@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { authFetch, useAuth, type Passkey } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
+import React, { useCallback, useEffect, useState } from 'react';
+import { authFetch, useAuth, type Passkey } from '../hooks/authContext';
+import { useTheme } from '../hooks/themeContext';
 import { Loader2, UserPlus, Trash2, RefreshCw, Shield, ShieldOff, X, Key } from 'lucide-react';
 
 interface AdminUser {
@@ -52,7 +52,7 @@ export default function AdminPanel({ open, onClose }: AdminPanelProps) {
     dark ? 'bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
   }`;
 
-  const loadPasskeys = async () => {
+  const loadPasskeys = useCallback(async () => {
     setPasskeysLoading(true);
     try {
       const [list, nickRes] = await Promise.all([
@@ -73,7 +73,8 @@ export default function AdminPanel({ open, onClose }: AdminPanelProps) {
     } finally {
       setPasskeysLoading(false);
     }
-  };
+    // listPasskeys is useCallback-memoized in useAuth, so this stays stable.
+  }, [listPasskeys]);
 
   const saveNickname = async (credentialId: string | undefined, name: string) => {
     if (!credentialId) return;
@@ -107,7 +108,7 @@ export default function AdminPanel({ open, onClose }: AdminPanelProps) {
     setEditingName(currentName);
   };
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -139,11 +140,11 @@ export default function AdminPanel({ open, onClose }: AdminPanelProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadPasskeys]);
 
   useEffect(() => {
     if (open) void loadAll();
-  }, [open]);
+  }, [open, loadAll]);
 
   if (!open) return null;
 

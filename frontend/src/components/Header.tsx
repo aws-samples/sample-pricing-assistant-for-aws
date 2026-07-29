@@ -1,9 +1,9 @@
 import React from 'react';
 import { MessageSquare, Moon, Sun, RotateCcw, HelpCircle, Settings, LogOut } from 'lucide-react';
-import { useTheme } from '../hooks/useTheme';
-import { useChat } from '../hooks/useChat';
-import { useModel } from '../hooks/useModel';
-import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/themeContext';
+import { useChat } from '../hooks/chatContext';
+import { useModel } from '../hooks/modelContext';
+import { useAuth } from '../hooks/authContext';
 import ModelSelector from './ModelSelector';
 
 interface HeaderProps {

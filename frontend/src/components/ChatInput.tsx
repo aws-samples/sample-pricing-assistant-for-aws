@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Paperclip, Loader2, X } from 'lucide-react';
-import { useChat } from '../hooks/useChat';
-import { useTheme } from '../hooks/useTheme';
-import { useModel } from '../hooks/useModel';
+import { useChat } from '../hooks/chatContext';
+import { useTheme } from '../hooks/themeContext';
+import { useModel } from '../hooks/modelContext';
 import FileUpload from './FileUpload';
 
 interface UploadedFileData {

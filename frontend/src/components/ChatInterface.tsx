@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Info } from 'lucide-react';
-import { useChat } from '../hooks/useChat';
-import { useTheme } from '../hooks/useTheme';
+import { useChat } from '../hooks/chatContext';
+import { useTheme } from '../hooks/themeContext';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import ErrorMessage from './ErrorMessage';

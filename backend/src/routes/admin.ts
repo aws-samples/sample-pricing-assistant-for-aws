@@ -85,6 +85,9 @@ function generateTemporaryPassword(): string {
       throw new Error('uniformInt range must be 1..256');
     }
     const limit = 256 - (256 % max); // largest multiple of max <= 256
+    // Unbounded loop is intentional: we resample until the byte falls in the
+    // unbiased range. Expected iterations < 2 for any max <= 256.
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const byte = crypto.randomBytes(1)[0]!;
       if (byte < limit) return byte % max;

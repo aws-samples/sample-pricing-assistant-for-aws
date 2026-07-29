@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Public releases on `aws-samples` follow their own `v1.x.y` tag track, independent of the internal version numbers above. Entries below are labeled with the public tag where they map to an aws-samples release.
 
+## [v1.2.1] - 2026-07-28 - Pricing Lookup Fixes (public tag)
+
+### 🐛 Pricing Lookups Returned No Rates (critical)
+Every pricing question answered "pricing rates are not currently available" — the model received product records with no prices attached, so it correctly declined to quote figures it couldn't verify.
+
+- **Root cause:** the AWS Pricing SDK returns `GetProducts` `PriceList` entries as *boxed* `String` objects (`typeof === 'object'`, `instanceof String`), not primitive strings. The parse guard `typeof p === 'string' ? JSON.parse(p) : p` therefore skipped the parse and treated the raw JSON text as an already-parsed object, so property access produced a char-indexed map (`{'0':'{', '1':'"', ...}`) and `product` / `terms` came back `undefined`. Every product surfaced with `attributes: {}` and `onDemandPricing: []`.
+- **Why it was invisible:** no thrown error, no failed request, HTTP 200 throughout — health checks, logs, and ECS status all stayed green.
+- **Fix:** normalize with `String(p)` before parsing; only pass an entry through untouched when it is a genuine non-`String` object. Handles primitive strings, boxed `String`s, and already-parsed objects.
+
+### 🔍 Three More Silent Failures (found auditing every AWS SDK call site)
+- **Unmapped regions returned zero results.** A hardcoded 15-entry region-name map meant any other region code (`eu-north-1`, `ap-southeast-3`, `me-central-1`, …) was sent as a `location` filter value, matched nothing, and returned empty with no error. Replaced with the API's `regionCode` filter field, which accepts region codes directly — regional pricing is now correctly differentiated (t3.micro: us-east-1 $7.59/mo vs eu-north-1 $7.88/mo).
+- **`getSavingsPlans` threw on every service-scoped query.** `DescribeSavingsPlansOfferings` accepts only `instanceFamily` and `region` as filter names; `serviceCode` was passed as a filter, raising a `ValidationException` that failed the whole call. Service scoping now uses the correct `productTypes` parameter, with a service-code → product-type mapping so either form works.
+- **Zero-result lookups were indistinguishable from "no pricing exists".** `getPricing` now returns `pricedCount` and a diagnostic warning when nothing matched (or when products matched with no On-Demand dimensions), so the model corrects its filters instead of reporting rates as unavailable. Tool descriptions now also note that EBS bills under `AmazonEC2` (there is no `AmazonEBS` service code) and that any region code is valid.
+- Audited clean: S3 (`GetObject`/`Head`/`Put`/`Delete`) async-iterates the body stream into a Buffer; Bedrock Converse handling uses optional chaining with explicit fallbacks.
+
+### 🧪 Tests and Tooling
+- Added `backend/scripts/check-pricing-parse.mts`, wired into `npm test`. Dependency-free with no network calls (this repo has no Jest config, so `npm test` previously failed with "0 matches"). Covers all three `PriceList` entry shapes, asserts the old naive `typeof` predicate is still reproducibly broken, and guards savings-plans filter-name validity plus region-code passthrough.
+- Added the missing ESLint configs (`backend/.eslintrc.cjs`, `frontend/.eslintrc.cjs`). The repo had no ESLint config at all, so `npm run lint` failed in both workspaces by walking into `dist/`. Lint now passes at `--max-warnings 0`.
+- Resolved all 10 pre-existing lint warnings: 4 `react-hooks/exhaustive-deps` and 6 `react-refresh/only-export-components` (each context + hook split into its own module). Also fixed a pre-existing WebSocket leak — the reconnect `setTimeout` was never cancelled on teardown and could open an orphan socket after unmount.
+- Typed `asyncHandler`'s `fn: Function` parameter as a real Express handler signature.
+
 ## [v1.2.0] - 2026-07-28 - Claude Opus 5 / Sonnet 5 + Dependency Security Update (public tag)
 
 ### 🤖 Model Update — Claude Opus 5 and Sonnet 5

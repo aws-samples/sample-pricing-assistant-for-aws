@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bot } from 'lucide-react';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme } from '../hooks/themeContext';
 
 const TypingIndicator: React.FC = () => {
   const { theme } = useTheme();

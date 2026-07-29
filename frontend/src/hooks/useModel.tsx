@@ -1,11 +1,9 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { useState, ReactNode } from 'react';
+import { ModelContext } from './modelContext';
 
-interface ModelContextType {
-  selectedModel: string;
-  setSelectedModel: (modelId: string) => void;
-}
-
-const ModelContext = createContext<ModelContextType | undefined>(undefined);
+// The context object and the useModel hook live in ./modelContext so that this
+// file only exports a component — required for React Fast Refresh. Import the
+// hook from './hooks/modelContext', not from here.
 
 interface ModelProviderProps {
   children: ReactNode;
@@ -19,12 +17,4 @@ export const ModelProvider: React.FC<ModelProviderProps> = ({ children }) => {
       {children}
     </ModelContext.Provider>
   );
-};
-
-export const useModel = () => {
-  const context = useContext(ModelContext);
-  if (context === undefined) {
-    throw new Error('useModel must be used within a ModelProvider');
-  }
-  return context;
 };

@@ -1,11 +1,11 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ChatMessage as ChatMessageType } from '../hooks/useChat';
+import { ChatMessage as ChatMessageType } from '../hooks/chatContext';
 import { formatDistanceToNow } from 'date-fns';
 import { User, Bot, AlertCircle, Info, Download } from 'lucide-react';
 import PricingDisplay from './PricingDisplay';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme } from '../hooks/themeContext';
 
 interface ChatMessageProps {
   message: ChatMessageType;

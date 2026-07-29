@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../hooks/authContext';
+import { useTheme } from '../hooks/themeContext';
 import { Loader2, KeyRound, Fingerprint, ShieldCheck, ArrowLeft } from 'lucide-react';
 
 type View = 'login' | 'newPassword' | 'mfaChallenge' | 'mfaSetup';

@@ -1,31 +1,16 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { useReducer, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { authFetch, buildWebSocketUrl, useAuth } from './useAuth';
+import { authFetch, buildWebSocketUrl, useAuth } from './authContext';
+import {
+  ChatContext,
+  type ChatContextType,
+  type ChatMessage,
+  type ChatState,
+} from './chatContext';
 
-// Types
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system' | 'error';
-  content: string;
-  timestamp: Date;
-  pricing?: any;
-  metadata?: {
-    model?: string;
-    inputTokens?: number;
-    outputTokens?: number;
-    latency?: number;
-    toolsUsed?: string[];
-  };
-}
-
-export interface ChatState {
-  messages: ChatMessage[];
-  conversationId: string | null;
-  isLoading: boolean;
-  error: string | null;
-  isTyping: boolean;
-  wsConnected: boolean;
-}
+// The context object, the useChat hook, and the ChatMessage/ChatState types
+// live in ./chatContext so that this file only exports a component — required
+// for React Fast Refresh. Import those from './hooks/chatContext', not here.
 
 // Actions
 type ChatAction =
@@ -122,17 +107,6 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
   }
 }
 
-// Context
-interface ChatContextType {
-  state: ChatState;
-  sendMessage: (content: string, streaming?: boolean, modelId?: string, fileIds?: string[]) => Promise<void>;
-  clearMessages: () => void;
-  addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  setError: (error: string | null) => void;
-}
-
-const ChatContext = createContext<ChatContextType | undefined>(undefined);
-
 // Provider
 interface ChatProviderProps {
   children: React.ReactNode;
@@ -149,7 +123,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
   // a signed-in user before connecting — otherwise the upgrade is rejected with 4401.
   React.useEffect(() => {
     if (!authReady) return undefined;
+    // Guards against a reconnect timer firing after this effect is torn down
+    // (auth change or unmount), which would otherwise open an orphan socket.
+    let disposed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+
     const connectWebSocket = () => {
+      if (disposed) return;
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const port = window.location.hostname === 'localhost' ? ':3001' : '';
       const wsUrl = buildWebSocketUrl(`${protocol}//${window.location.hostname}${port}/ws/chat`);
@@ -181,11 +161,12 @@ export function ChatProvider({ children }: ChatProviderProps) {
       };
 
       ws.onclose = (event) => {
+        if (disposed) return;
         dispatch({ type: 'SET_WS_CONNECTED', payload: false });
-        
+
         // Reconnect after 3 seconds if not a normal closure
         if (event.code !== 1000) {
-          setTimeout(connectWebSocket, 3000);
+          reconnectTimer = setTimeout(connectWebSocket, 3000);
         }
       };
 
@@ -200,10 +181,20 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
     // Cleanup on unmount
     return () => {
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (wsRef.current) {
         wsRef.current.close(1000);
+        wsRef.current = null;
       }
     };
+    // Deliberately mount-only. `authReady` is read once to decide whether to
+    // open the socket and is intentionally NOT a dependency: on first render
+    // `config` is still null, so `!config?.enabled` is true and we connect
+    // right away. Adding `authReady` here would make it flip true -> false ->
+    // true once the config fetch resolves on an auth-enabled deployment,
+    // tearing down a healthy socket and reconnecting for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addMessage = useCallback((message: Omit<ChatMessage, 'id' | 'timestamp'>) => {
@@ -223,54 +214,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
     dispatch({ type: 'CLEAR_MESSAGES' });
   }, []);
 
-  const sendMessage = useCallback(async (content: string, streaming: boolean = true, modelId?: string, fileIds?: string[]) => {
-    if (!content.trim()) return;
-
-    // Add user message
-    const userMessage: ChatMessage = {
-      id: uuidv4(),
-      role: 'user',
-      content: content.trim(),
-      timestamp: new Date(),
-    };
-    dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
-
-    // Set loading states
-    dispatch({ type: 'SET_LOADING', payload: true });
-    dispatch({ type: 'SET_TYPING', payload: true });
-    dispatch({ type: 'SET_ERROR', payload: null });
-
-    try {
-      if (streaming) {
-        // Handle WebSocket streaming response
-        await handleWebSocketResponse(content, modelId, fileIds);
-      } else {
-        // Handle regular response
-        await handleRegularResponse(content, modelId, fileIds);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-
-      // Add error message to chat
-      const errorChatMessage: ChatMessage = {
-        id: uuidv4(),
-        role: 'error',
-        content: `Sorry, I encountered an error: ${errorMessage}. Please try again.`,
-        timestamp: new Date(),
-      };
-      dispatch({ type: 'ADD_MESSAGE', payload: errorChatMessage });
-      
-      // Clear typing state on error
-      setTimeout(() => {
-        dispatch({ type: 'SET_TYPING', payload: false });
-      }, 100);
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
-  }, [state.conversationId, state.messages]);
-
-  const handleWebSocketResponse = async (content: string, modelId?: string, fileIds?: string[]): Promise<void> => {
+  // Declared before sendMessage so it can be a real dependency. Both response
+  // handlers only read state.conversationId (never state.messages), so that is
+  // the complete dependency list.
+  const handleWebSocketResponse = useCallback(async (content: string, modelId?: string, fileIds?: string[]): Promise<void> => {
     return new Promise((resolve, reject) => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -278,7 +225,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
         return;
       }
 
-      let assistantMessageId = uuidv4();
+      const assistantMessageId = uuidv4();
       let assistantContent = '';
       let metadata: any = {};
       const messageId = uuidv4();
@@ -384,9 +331,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
         reject(new Error('WebSocket timeout'));
       }, 300000); // 300 second timeout (5 minutes)
     });
-  };
+  }, [state.conversationId]);
 
-  const handleRegularResponse = async (content: string, modelId?: string, fileIds?: string[]) => {
+  const handleRegularResponse = useCallback(async (content: string, modelId?: string, fileIds?: string[]) => {
     // Make API call to backend (authFetch attaches the bearer token when auth is enabled)
     const response = await authFetch('/api/chat', {
       method: 'POST',
@@ -423,7 +370,54 @@ export function ChatProvider({ children }: ChatProviderProps) {
       metadata: data.metadata,
     };
     dispatch({ type: 'ADD_MESSAGE', payload: assistantMessage });
-  };
+  }, [state.conversationId]);
+
+  const sendMessage = useCallback(async (content: string, streaming: boolean = true, modelId?: string, fileIds?: string[]) => {
+    if (!content.trim()) return;
+
+    // Add user message
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'user',
+      content: content.trim(),
+      timestamp: new Date(),
+    };
+    dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
+
+    // Set loading states
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_TYPING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
+
+    try {
+      if (streaming) {
+        // Handle WebSocket streaming response
+        await handleWebSocketResponse(content, modelId, fileIds);
+      } else {
+        // Handle regular response
+        await handleRegularResponse(content, modelId, fileIds);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+
+      // Add error message to chat
+      const errorChatMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'error',
+        content: `Sorry, I encountered an error: ${errorMessage}. Please try again.`,
+        timestamp: new Date(),
+      };
+      dispatch({ type: 'ADD_MESSAGE', payload: errorChatMessage });
+
+      // Clear typing state on error
+      setTimeout(() => {
+        dispatch({ type: 'SET_TYPING', payload: false });
+      }, 100);
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [handleWebSocketResponse, handleRegularResponse]);
 
   const value: ChatContextType = {
     state,
@@ -442,12 +436,3 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
 // Add displayName for better debugging and Fast Refresh compatibility
 ChatProvider.displayName = 'ChatProvider';
-
-// Custom hook for chat functionality - must be a named export for Fast Refresh
-export const useChat = (): ChatContextType => {
-  const context = useContext(ChatContext);
-  if (context === undefined) {
-    throw new Error('useChat must be used within a ChatProvider');
-  }
-  return context;
-};
