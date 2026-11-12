@@ -16,7 +16,7 @@ const envSchema = z.object({
   AWS_PROFILE: z.string().optional(),
 
   // Bedrock Configuration
-  BEDROCK_MODEL_ID: z.string().default('us.anthropic.claude-opus-5'),
+  BEDROCK_MODEL_ID: z.string().default('us.anthropic.claude-opus-5-5'),
   BEDROCK_GUARDRAIL_ID: z.string().optional(),
   BEDROCK_GUARDRAIL_VERSION: z.string().default('1'),
 

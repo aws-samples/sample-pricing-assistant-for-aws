@@ -125,6 +125,12 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub ${ProjectName}-${Environment}-ecs-task-role
+      # IAM principal tag: Amazon Bedrock bills this role's calls under the
+      # iamPrincipal/Project cost allocation tag, which the Bedrock budget in
+      # 11-bedrock-budget.yaml filters on. Keep the key and value in sync with it.
+      Tags:
+        - Key: Project
+          Value: !Sub ${ProjectName}-${Environment}
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -241,12 +247,12 @@ Resources:
               Value: '3001'
             - Name: FRONTEND_ORIGIN
               Value: !Sub https://${DomainName}
-            # Inference Profile for Sonnet 5
+            # Inference Profile for Sonnet 5.5
             - Name: BEDROCK_INFERENCE_PROFILE_SONNET_ARN
-              Value: 'us.anthropic.claude-sonnet-5'
-            # Inference Profile for Opus 5
+              Value: 'us.anthropic.claude-sonnet-5-5'
+            # Inference Profile for Opus 5.5
             - Name: BEDROCK_INFERENCE_PROFILE_OPUS_ARN
-              Value: 'us.anthropic.claude-opus-5'
+              Value: 'us.anthropic.claude-opus-5-5'
             # S3 Configuration
             - Name: S3_BUCKET_NAME
               Value: !Ref FileStorageBucket

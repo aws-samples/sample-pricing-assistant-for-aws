@@ -10,7 +10,7 @@ interface ModelProviderProps {
 }
 
 export const ModelProvider: React.FC<ModelProviderProps> = ({ children }) => {
-  const [selectedModel, setSelectedModel] = useState('us.anthropic.claude-opus-5');
+  const [selectedModel, setSelectedModel] = useState('us.anthropic.claude-opus-5-5');
 
   return (
     <ModelContext.Provider value={{ selectedModel, setSelectedModel }}>

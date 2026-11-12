@@ -429,21 +429,18 @@ Resources:
                   - iam:UntagPolicy
                 Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:policy/${ProjectName}-*'
               # AWS Budgets resources for the Bedrock cost cap stack.
+              # IAM authorizes the CreateBudget, UpdateBudget, DeleteBudget and
+              # the notification/subscriber APIs as budgets:ModifyBudget, and
+              # DescribeBudget(s) as budgets:ViewBudget (Service Authorization
+              # Reference, AWS Budget Service). Scoped to this project's budgets.
               - Effect: Allow
                 Action:
-                  - budgets:CreateBudget
-                  - budgets:UpdateBudget
-                  - budgets:DeleteBudget
-                  - budgets:DescribeBudget
-                  - budgets:DescribeBudgets
-                  - budgets:CreateNotification
-                  - budgets:UpdateNotification
-                  - budgets:DeleteNotification
-                  - budgets:DescribeNotificationsForBudget
-                  - budgets:CreateSubscriber
-                  - budgets:UpdateSubscriber
-                  - budgets:DeleteSubscriber
-                  - budgets:DescribeSubscribersForNotification
+                  - budgets:ViewBudget
+                  - budgets:ModifyBudget
+                  - budgets:ListTagsForResource
+                Resource: !Sub 'arn:aws:budgets::${AWS::AccountId}:budget/${ProjectName}-*'
+              - Effect: Allow
+                Action:
                   - budgets:ExecuteBudgetAction
                   - budgets:CreateBudgetAction
                   - budgets:UpdateBudgetAction
