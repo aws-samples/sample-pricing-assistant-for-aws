@@ -50,12 +50,15 @@
     "ws": "^8.21.0"
   },
   "overrides": {
-    "fast-xml-parser": "5.3.6",
-    "qs": "6.14.1",
-    "minimatch": ">=10.0.0",
+    "fast-xml-parser": "5.12.0",
+    "qs": "6.16.2",
+    "minimatch": ">=11.0.1",
     "rollup": ">=4.0.0",
-    "shell-quote": ">=1.9.0",
-    "brace-expansion": ">=5.0.7",
-    "form-data": ">=4.0.6"
+    "shell-quote": ">=1.11.0",
+    "brace-expansion": ">=5.0.12",
+    "form-data": ">=4.0.6",
+    "@tailwindcss/typography": {
+      "postcss-selector-parser": "^6.1.5"
+    }
   }
 }

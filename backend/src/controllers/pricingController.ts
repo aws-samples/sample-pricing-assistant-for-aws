@@ -8,7 +8,7 @@ import { asyncHandler } from '@/utils/errors.js';
 const pricingQuerySchema = z.object({
   service: z.string().min(1, 'Service code is required'),
   region: z.string().optional(),
-  filters: z.record(z.any()).optional(),
+  filters: z.record(z.string(), z.any()).optional(),
 });
 
 const serviceAttributesSchema = z.object({
@@ -17,7 +17,8 @@ const serviceAttributesSchema = z.object({
 
 const attributeValuesSchema = z.object({
   serviceCode: z.string().min(1, 'Service code is required'),
-  attributeNames: z.array(z.string()).min(1, 'At least one attribute name is required'),
+  // max() lets zod reject an oversized array before checking each item (GHSA-mrhx-c7xc-m3w5)
+  attributeNames: z.array(z.string()).min(1, 'At least one attribute name is required').max(100),
 });
 
 /**
@@ -95,13 +96,13 @@ export const getPricing = asyncHandler(async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       logger.warn('Invalid pricing query request', {
         requestId,
-        errors: error.errors,
+        errors: error.issues,
       });
 
       return res.status(400).json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
         timestamp: new Date().toISOString(),
       });
     }
@@ -153,13 +154,13 @@ export const getServiceAttributes = asyncHandler(async (req: Request, res: Respo
     if (error instanceof z.ZodError) {
       logger.warn('Invalid service attributes request', {
         requestId,
-        errors: error.errors,
+        errors: error.issues,
       });
 
       return res.status(400).json({
         success: false,
         error: 'Invalid request parameters',
-        details: error.errors,
+        details: error.issues,
         timestamp: new Date().toISOString(),
       });
     }
@@ -218,13 +219,13 @@ export const getAttributeValues = asyncHandler(async (req: Request, res: Respons
     if (error instanceof z.ZodError) {
       logger.warn('Invalid attribute values request', {
         requestId,
-        errors: error.errors,
+        errors: error.issues,
       });
 
       return res.status(400).json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
         timestamp: new Date().toISOString(),
       });
     }

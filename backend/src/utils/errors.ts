@@ -112,7 +112,7 @@ export const errorHandler = (
   if (error instanceof ZodError) {
     const validationError = new ValidationError('Invalid request data');
     const errorResponse = createErrorResponse(validationError, requestId, {
-      validationErrors: error.errors,
+      validationErrors: error.issues,
     });
     res.status(400).json(errorResponse);
     return;

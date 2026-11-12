@@ -8,16 +8,17 @@ export const timestampSchema = z.string().datetime();
 export const chatRequestSchema = z.object({
   message: z.string().min(1).max(10000),
   conversationId: z.string().uuid().optional().nullable(),
-  context: z.record(z.any()).optional(),
+  context: z.record(z.string(), z.any()).optional(),
   modelId: z.string().optional(),
   fileId: z.string().uuid().optional(), // Keep for backward compatibility
-  fileIds: z.array(z.string().uuid()).optional(), // New field for multiple files
+  // max() lets zod reject an oversized array before checking each item (GHSA-mrhx-c7xc-m3w5)
+  fileIds: z.array(z.string().uuid()).max(50).optional(), // New field for multiple files
 });
 
 export const chatResponseSchema = z.object({
   response: z.string(),
   conversationId: z.string().uuid(),
-  pricing: z.record(z.any()).optional(),
+  pricing: z.record(z.string(), z.any()).optional(),
   timestamp: timestampSchema,
   metadata: z.object({
     model: z.string(),
@@ -58,17 +59,17 @@ export const fileAnalysisResponseSchema = z.object({
   resources: z.array(z.object({
     type: z.string(),
     name: z.string(),
-    properties: z.record(z.any()),
+    properties: z.record(z.string(), z.any()),
     estimatedCost: z.object({
       monthly: z.number(),
       currency: z.string().default('USD'),
-      breakdown: z.record(z.number()).optional(),
+      breakdown: z.record(z.string(), z.number()).optional(),
     }),
   })),
   totalCost: z.object({
     monthly: z.number(),
     currency: z.string().default('USD'),
-    breakdown: z.record(z.number()),
+    breakdown: z.record(z.string(), z.number()),
   }),
   recommendations: z.array(z.string()).optional(),
   timestamp: timestampSchema,
@@ -78,7 +79,7 @@ export const fileAnalysisResponseSchema = z.object({
 export const pricingQuerySchema = z.object({
   service: z.string().min(1),
   region: z.string().optional(),
-  filters: z.record(z.any()).optional(),
+  filters: z.record(z.string(), z.any()).optional(),
   includeRecommendations: z.boolean().default(false),
 });
 
@@ -86,9 +87,9 @@ export const pricingResponseSchema = z.object({
   service: z.string(),
   region: z.string().optional(),
   pricing: z.object({
-    onDemand: z.record(z.any()).optional(),
-    reserved: z.record(z.any()).optional(),
-    spot: z.record(z.any()).optional(),
+    onDemand: z.record(z.string(), z.any()).optional(),
+    reserved: z.record(z.string(), z.any()).optional(),
+    spot: z.record(z.string(), z.any()).optional(),
   }),
   recommendations: z.array(z.string()).optional(),
   lastUpdated: timestampSchema,
@@ -98,7 +99,7 @@ export const pricingResponseSchema = z.object({
 export const healthResponseSchema = z.object({
   status: z.enum(['ok', 'degraded', 'error']),
   timestamp: timestampSchema,
-  services: z.record(z.enum(['healthy', 'unhealthy', 'unknown'])),
+  services: z.record(z.string(), z.enum(['healthy', 'unhealthy', 'unknown'])),
   version: z.string().optional(),
   uptime: z.number().optional(),
 });
@@ -126,18 +127,18 @@ export const mcpResponseSchema = z.object({
 export const awsResourceSchema = z.object({
   type: z.string(),
   name: z.string(),
-  properties: z.record(z.any()),
+  properties: z.record(z.string(), z.any()),
   dependencies: z.array(z.string()).optional(),
-  tags: z.record(z.string()).optional(),
+  tags: z.record(z.string(), z.string()).optional(),
 });
 
 export const infrastructureFileSchema = z.object({
   format: z.enum(['cloudformation', 'terraform', 'cdk', 'pulumi']),
   version: z.string().optional(),
   resources: z.array(awsResourceSchema),
-  parameters: z.record(z.any()).optional(),
-  outputs: z.record(z.any()).optional(),
-  metadata: z.record(z.any()).optional(),
+  parameters: z.record(z.string(), z.any()).optional(),
+  outputs: z.record(z.string(), z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 // Error response schema

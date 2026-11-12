@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Public releases on `aws-samples` follow their own `v1.x.y` tag track, independent of the internal version numbers above. Entries below are labeled with the public tag where they map to an aws-samples release.
 
+## [v1.2.2] - 2026-11-12 - Dependency Security Update (public tag)
+
+Rebuild and redeploy the backend and frontend images to pick up the runtime fixes. No configuration change is needed.
+
+### 🔐 Dependency Security Fixes
+
+Runtime (backend unless noted):
+- `axios` 1.18.1 → 1.21.1 (frontend + backend): fixes GHSA-r4gj-5m52-g5wh, GHSA-c29m-xwm3-cm6r, GHSA-x97p-jq2g-jp4f, GHSA-m8m8-qj5v-23w3 (HIGH), GHSA-4hqw-qxg8-jxx2, GHSA-j8rh-479h-cp32 and the other advisories below 1.20.0
+- `follow-redirects` 1.16.0 → 1.16.3 (via axios): fixes GHSA-8r9p-f939-6h3c, GHSA-q3jh-wrc6-jgq8, GHSA-mrwp-f3q8-3g9p (HIGH)
+- `multer` 2.2.0 → 2.5.0: fixes GHSA-qfvm-cv95-jqjf, GHSA-wc9g-mqfw-jrwm, GHSA-535w-7cp7-47q4, GHSA-q7qp-rjg7-q26m (HIGH), GHSA-3pph-fpjx-jg34, GHSA-qvfw-j98x-7q72
+- `proxy-addr` 2.0.7 → 2.0.8 (via express): fixes GHSA-jqcg-44mw-7w3h (CRITICAL — IP spoofing via IPv4-mapped IPv6 trust subnet)
+- `ip-address` 10.2.0 → 10.7.6 (via express-rate-limit): fixes GHSA-mwp4-54f8-5fhr (HIGH), GHSA-22jq-vg5j-6vgg, GHSA-4xrf-jv44-h6hh, GHSA-2vr4-cq9g-pvrc, GHSA-rpw4-54j3-4h4q, GHSA-j6r3-76f7-8jcv, GHSA-rxp7-6hxx-x8q5
+- `js-yaml` 4.3.0 → 4.3.2: fixes GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh (HIGH)
+- `express` 4.22.2 → 4.22.3, `body-parser` 1.20.6 → 1.20.9, `qs` 6.15.2 → 6.16.2 (override raised): fixes GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g, GHSA-27r3-jxmh-p828 (HIGH)
+- `morgan` 1.11.0 → 1.12.1: fixes GHSA-jxfw-x594-9x9m, GHSA-9f6g-j8ch-79g4 (log forging and log injection)
+- `fast-xml-parser` 5.7.3 → 5.12.0 (frontend, via aws-amplify; override raised) and `@aws-sdk/xml-builder` 3.972.24 → 3.972.43: fixes GHSA-474x-hrwr-fgx4
+- `zod` 3.25.76 → 4.6.7 (major upgrade): fixes GHSA-mrhx-c7xc-m3w5 (HIGH). Code changes for zod 4: `z.record()` now takes an explicit key schema, `ZodError.errors` is now `ZodError.issues`, and the `fileIds` (max 50) and `attributeNames` (max 100) request arrays now have a size limit, so an oversized array is rejected with one error. API validation errors keep the same response envelope, but the zod issues inside `details` / `validationErrors` follow the zod 4 format: some `code` values and field names change, and messages are worded differently.
+
+Dev-only (build and test tooling, not shipped in the images):
+- `vite` 7.3.6 → 7.3.8: fixes GHSA-587h-7wmj-h5pm (HIGH), GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw, GHSA-rq7h-c2jc-7f22, GHSA-9jrq-w75r-8gcw
+- `handlebars` 4.7.9 → 4.7.10 (via `ts-jest` 29.4.15): fixes GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f (CRITICAL), GHSA-xw65-4hp5-5hc7
+- `shell-quote` 1.10.0 → 1.12.0 (override raised): fixes GHSA-pqg4-j6r4-53mv (CRITICAL)
+- `js-yaml` 3.15.0 → 3.15.2 (via jest): fixes GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh (HIGH)
+- `browserslist` 4.28.2 → 4.29.5 and `baseline-browser-mapping` 2.10.27 → 2.11.35 (via `autoprefixer` 10.6.2): fixes GHSA-73wf-gq98-2v4g, GHSA-c83g-rgw3-j3cx (HIGH), GHSA-w5vr-8v7q-w6rv
+- `source-map-js` 1.2.1 → 1.2.2 and `nanoid` 3.3.16 → 3.3.20 (via `postcss` 8.5.32): fixes GHSA-68fv-2mgg-jv7q, GHSA-2v37-7h3g-55p8 (HIGH)
+- `postcss-selector-parser` → 6.1.6 (new override for `@tailwindcss/typography`, which pins 6.0.10): fixes GHSA-rj75-hqrm-r3gf, GHSA-w9m9-85wc-3x92
+- `brace-expansion` 5.0.8 → 5.0.12 (override raised): fixes GHSA-rgw5-rvv9-x895, GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p (HIGH), GHSA-q2hr-2g5m-vwhr
+- `minimatch` 10.2.5 → 11.0.8 (override raised to `>=11.0.1`; used by ESLint, `@typescript-eslint` and Jest): fixes GHSA-g3hv-75wg-m249
+
+Still open:
+- `deepmerge` 4.3.1 via `jest` 29 (GHSA-gcqx-w48m-w2h4, LOW): dev-only. No patched `deepmerge` release exists, and Jest 30 still depends on it, so no upgrade clears it.
+
 ## [v1.2.1] - 2026-07-28 - Pricing Lookup Fixes (public tag)
 
 ### 🐛 Pricing Lookups Returned No Rates (critical)
