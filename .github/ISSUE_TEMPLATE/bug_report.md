@@ -23,7 +23,7 @@ What actually happened. Include any error messages or stack traces.
 **Environment**
 - Region: (e.g., us-west-2)
 - Auth mode: (open-access / Cognito enabled)
-- Model selected: (Opus 5 / Sonnet 5 / other)
+- Model selected: (Opus 5.5 / Sonnet 5.5 / other)
 - Browser: (e.g., Chrome 124)
 - Deployment method: (manual CFN / CodePipeline)
 

@@ -16,7 +16,7 @@ Cost figures returned by this application are AI-generated using foundation mode
 - 📁 **File Analysis**: Upload and analyze CloudFormation, Terraform, CDK files
 - 🔄 **Multiple Files**: Combined cost estimation for entire infrastructure
 - 🛡️ **Security**: File validation, content scanning, and secure uploads
-- ⚡ **Claude Opus 5**: Default model with advanced reasoning via CRIS inference profiles
+- ⚡ **Claude Opus 5.5**: Default model with advanced reasoning via CRIS inference profiles
 - 📱 **Mobile Responsive**: Optimized for all device sizes
 - 🔒 **CloudFront CDN**: Global edge caching with CloudFront prefix list security
 - 📈 **Comprehensive Monitoring**: CloudWatch dashboard with alerts and observability
@@ -58,7 +58,7 @@ drawio -x -f png -o docs/cicd-pipeline-architecture.png docs/cicd-pipeline-archi
 - **Frontend**: React app running on ECS Fargate (2 tasks)
 - **Backend**: Node.js API on ECS Fargate (2 tasks) 
 - **Load Balancer**: ALB with HTTPS-only listener, locked to CloudFront
-- **AI Processing**: Claude Opus 5 via Bedrock CRIS inference profiles (Sonnet 5 also available)
+- **AI Processing**: Claude Opus 5.5 via Bedrock CRIS inference profiles (Sonnet 5.5 also available)
 - **Conversation Memory**: Invisible history injection for better context continuity (10 messages vs 3)
 - **Pricing Data**: Converse API with inline tool use calling AWS Pricing API directly
 - **File Storage**: S3 bucket with 7-day lifecycle policy
@@ -220,6 +220,13 @@ git push origin main
 ```
 
 **🎉 Your AWS Pricing Assistant is now fully deployed with GitOps automation!**
+
+#### Step 6: Turn On the Bedrock Cost Cap
+The pipeline creates a monthly Bedrock budget (`infrastructure/11-bedrock-budget.yaml`, `MonthlyBedrockBudgetUSD`, default $100). When actual spend passes it, a budget action attaches a deny policy to the ECS task role. The budget counts Bedrock spend from IAM principals tagged `iamPrincipal/Project = <ProjectName>-<Environment>`, so it works only after you activate that cost allocation tag in the payer (or standalone) account:
+1. Send one chat, so the tagged task role calls Amazon Bedrock.
+2. In Billing and Cost Management → Cost allocation tags, filter by IAM principal and activate `iamPrincipal/Project`. The key can take up to 24 hours to appear and up to 24 more to activate.
+
+Until the tag is active, the budget counts $0 and the cap can't trip.
 
 ## 🔐 Authentication (optional)
 
@@ -413,7 +420,7 @@ aws-pricing-assistant/
 - **TypeScript** throughout
 
 ### AWS Services
-- **Amazon Bedrock** (Claude Opus 5 via inference profiles)
+- **Amazon Bedrock** (Claude Opus 5.5 via inference profiles)
 - **CloudFront** CDN with global edge caching
 - **Bedrock Agents** (legacy, removed in v2.5.0)
 - **AWS Pricing API** (built-in tools)

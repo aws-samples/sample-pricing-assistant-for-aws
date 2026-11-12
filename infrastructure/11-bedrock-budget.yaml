@@ -1,9 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: |
   AWS Pricing Assistant — Bedrock cost cap.
-  Defines an AWS Budget on Bedrock spend with a budget action that attaches a
-  deny-all-Bedrock managed policy to the ECS task role when monthly spend
-  exceeds the configured threshold. This is the hard-stop counterpart to the
+  Defines an AWS Budget on this app's own Bedrock spend (calls made by the ECS
+  task role, matched by its IAM principal tag) with a budget action that
+  attaches a deny-all-Bedrock managed policy to the ECS task role when monthly
+  spend exceeds the configured threshold. This is the hard-stop counterpart to the
   CloudWatch BedrockInvocationAlarm in 06-monitoring.yaml, which only alerts.
 
 Parameters:
@@ -74,7 +75,14 @@ Resources:
                   - iam:ListAttachedRolePolicies
                 Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-${Environment}-ecs-task-role
 
-  # Cost budget scoped to the Bedrock service.
+  # Cost budget scoped to this app's own Bedrock spend. Amazon Bedrock records
+  # the calling IAM principal on every inference request, and the ECS task
+  # role carries the tag Project=${ProjectName}-${Environment}
+  # (04-ecs-services.yaml). Filtering on that IAM principal tag counts only the
+  # app's calls, not other Bedrock use in the same account.
+  # Prerequisite: the iamPrincipal/Project cost allocation tag must be active in
+  # the payer (or standalone) account's Billing console. Tag data flows only
+  # after activation and can take up to 24 hours to appear.
   BedrockMonthlyBudget:
     Type: AWS::Budgets::Budget
     Properties:
@@ -85,9 +93,13 @@ Resources:
         BudgetLimit:
           Amount: !Ref MonthlyBudgetUSD
           Unit: USD
-        CostFilters:
-          Service:
-            - Amazon Bedrock
+        FilterExpression:
+          Tags:
+            Key: iamPrincipal/Project
+            Values:
+              - !Sub ${ProjectName}-${Environment}
+            MatchOptions:
+              - EQUALS
       NotificationsWithSubscribers:
         # Forecasted breach: notify only.
         - Notification:

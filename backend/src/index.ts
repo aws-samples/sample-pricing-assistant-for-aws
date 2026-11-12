@@ -82,7 +82,7 @@ app.get('/api', (_req, res) => {
     },
     features: {
       bedrock: 'enabled',
-      model: 'us.anthropic.claude-opus-5',
+      model: 'us.anthropic.claude-opus-5-5',
       guardrails: 'configurable',
       pricing: 'enabled',
       mcpServer: 'integrated',

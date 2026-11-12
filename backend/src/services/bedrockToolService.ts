@@ -43,8 +43,8 @@ export class BedrockToolService {
       retryMode: 'adaptive',
     });
 
-    this.sonnetInferenceProfileArn = process.env.BEDROCK_INFERENCE_PROFILE_SONNET_ARN || 'us.anthropic.claude-sonnet-5';
-    this.opusInferenceProfileArn = process.env.BEDROCK_INFERENCE_PROFILE_OPUS_ARN || 'us.anthropic.claude-opus-5';
+    this.sonnetInferenceProfileArn = process.env.BEDROCK_INFERENCE_PROFILE_SONNET_ARN || 'us.anthropic.claude-sonnet-5-5';
+    this.opusInferenceProfileArn = process.env.BEDROCK_INFERENCE_PROFILE_OPUS_ARN || 'us.anthropic.claude-opus-5-5';
 
     logger.info('Bedrock inference profiles configured', {
       sonnet: this.sonnetInferenceProfileArn,
@@ -56,9 +56,9 @@ export class BedrockToolService {
    * Get model name for display
    */
   private getModelDisplayName(modelId?: string): string {
-    if (modelId === 'us.anthropic.claude-opus-5') return 'Claude Opus 5';
-    if (modelId === 'us.anthropic.claude-sonnet-5') return 'Claude Sonnet 5';
-    return 'Claude Opus 5';
+    if (modelId === 'us.anthropic.claude-opus-5-5') return 'Claude Opus 5.5';
+    if (modelId === 'us.anthropic.claude-sonnet-5-5') return 'Claude Sonnet 5.5';
+    return 'Claude Opus 5.5';
   }
 
   /**
@@ -72,7 +72,7 @@ export class BedrockToolService {
     conversationId?: string,
     _hasFiles: boolean = false
   ): Promise<BedrockToolResponse> {
-    return this.sendMessageWithInferenceProfile(message, conversationHistory, modelId || 'us.anthropic.claude-opus-5', conversationId);
+    return this.sendMessageWithInferenceProfile(message, conversationHistory, modelId || 'us.anthropic.claude-opus-5-5', conversationId);
   }
 
   /**
@@ -167,7 +167,7 @@ For pricing questions:
   ): Promise<BedrockToolResponse> {
     const startTime = Date.now();
     
-    const inferenceProfileArn = modelId === 'us.anthropic.claude-sonnet-5'
+    const inferenceProfileArn = modelId === 'us.anthropic.claude-sonnet-5-5'
       ? this.sonnetInferenceProfileArn
       : this.opusInferenceProfileArn;
 

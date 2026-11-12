@@ -93,9 +93,9 @@ Resources:
                 "height": 6,
                 "properties": {
                   "metrics": [
-                    [ "AWS/Bedrock", "Invocations", "ModelId", "us.anthropic.claude-opus-5" ],
+                    [ "AWS/Bedrock", "Invocations", "ModelId", "us.anthropic.claude-opus-5-5" ],
                     [ ".", "InvocationLatency", ".", "." ],
-                    [ ".", "Invocations", "ModelId", "us.anthropic.claude-sonnet-5" ],
+                    [ ".", "Invocations", "ModelId", "us.anthropic.claude-sonnet-5-5" ],
                     [ ".", "InvocationLatency", ".", "." ]
                   ],
                   "view": "timeSeries",

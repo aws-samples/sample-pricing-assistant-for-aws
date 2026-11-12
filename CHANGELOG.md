@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Public releases on `aws-samples` follow their own `v1.x.y` tag track, independent of the internal version numbers above. Entries below are labeled with the public tag where they map to an aws-samples release.
 
+## [v1.3.0] - 2026-11-12 - Claude Opus 5.5 / Sonnet 5.5 + App-Scoped Bedrock Cost Cap (public tag)
+
+### ⬆ Upgrade Steps (existing deployments)
+Order matters. Run each command in the Region where the app runs (`export AWS_REGION=<your Region>`) unless it names another. Names use the defaults `ProjectName=aws-pricing-assistant` and `Environment=prod`; change them if yours differ.
+
+1. **Enable the two models first.** The ECS task role has no AWS Marketplace permissions, so it can't start a model subscription itself. Chats fail as soon as the new task definition is live. As an identity with `aws-marketplace:Subscribe` and `aws-marketplace:ViewSubscriptions`, send one prompt to each model, from the Amazon Bedrock console playground or with:
+   ```bash
+   for m in us.anthropic.claude-opus-5-5 us.anthropic.claude-sonnet-5-5; do
+     aws bedrock-runtime converse --model-id "$m" \
+       --messages '[{"role":"user","content":[{"text":"ping"}]}]' --query stopReason
+   done
+   for m in anthropic.claude-opus-5-5 anthropic.claude-sonnet-5-5; do
+     aws bedrock get-foundation-model-availability --model-id "$m" --query agreementAvailability.status
+   done
+   ```
+   The availability checks must print `"AVAILABLE"`. If the account or its organization has never used an Anthropic model, submit the Anthropic first-time use form in the Bedrock console first. The `us.` inference profiles work from US and Canada source Regions only. Elsewhere, set `BEDROCK_INFERENCE_PROFILE_OPUS_ARN` and `BEDROCK_INFERENCE_PROFILE_SONNET_ARN` in `04-ecs-services.yaml` to the `eu.`, `jp.`, `au.` or `global.` profile ID from the model card. If you narrowed the task role's `BedrockAccess` policy below `Resource: '*'`, allow the new inference profile and foundation model ARNs.
+2. **Update the pipeline stack** before v1.3.0 reaches the branch your pipeline watches. The pipeline does not deploy its own stack, and without this step its CloudFormation role can't create or update the budget:
+   ```bash
+   aws cloudformation deploy --stack-name aws-pricing-assistant-pipeline \
+     --template-file infrastructure/05-codepipeline.yaml \
+     --capabilities CAPABILITY_NAMED_IAM --no-execute-changeset
+   aws cloudformation describe-change-set --change-set-name <change-set ARN printed above> \
+     --include-property-values --query 'Changes[].ResourceChange.[Action,LogicalResourceId,Replacement]' --output text
+   aws cloudformation execute-change-set --change-set-name <change-set ARN printed above>
+   aws cloudformation wait stack-update-complete --stack-name aws-pricing-assistant-pipeline
+   ```
+   `deploy` keeps your current parameter values. From an unmodified v1.x pipeline stack, expect exactly one change: `Modify CloudFormationServiceRole False`. Without `--include-property-values`, the list can also show `Modify Pipeline`, caused by `CloudFormationServiceRole.Arn`. That is a re-evaluation; the role's ARN does not change.
+3. **Check the budget stack, then deploy:**
+   ```bash
+   aws cloudformation describe-stacks --stack-name aws-pricing-assistant-budget --query 'Stacks[0].StackStatus' --output text
+   ```
+   - `UPDATE_ROLLBACK_FAILED` (an update was denied; the budget did not change): `aws cloudformation continue-update-rollback --stack-name aws-pricing-assistant-budget --resources-to-skip BedrockMonthlyBudget`
+   - `ROLLBACK_COMPLETE` (the first create was denied; the stack holds no resources, which `aws cloudformation list-stack-resources --stack-name aws-pricing-assistant-budget` confirms): `aws cloudformation delete-stack --stack-name aws-pricing-assistant-budget`. This path follows standard CloudFormation behavior for a failed first create (a `ROLLBACK_COMPLETE` stack can only be deleted); it was not reproduced for this release
+   - Any other status, or no stack: nothing to do.
+
+   Then sync your fork or push v1.3.0 to the branch your pipeline watches. If the pipeline already ran it, re-run: `aws codepipeline start-pipeline-execution --name aws-pricing-assistant-prod-pipeline`
+4. **If the cap already fired**, check whether the deny policy is attached: `aws iam list-attached-role-policies --role-name aws-pricing-assistant-prod-ecs-task-role`. If `aws-pricing-assistant-prod-bedrock-deny` is listed, reverse the budget action:
+   ```bash
+   ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+   BUDGET=aws-pricing-assistant-prod-bedrock-monthly
+   ACTION_ID=$(aws budgets describe-budget-actions-for-budget --region us-east-1 --account-id "$ACCOUNT_ID" \
+     --budget-name "$BUDGET" --query 'Actions[0].ActionId' --output text)
+   aws budgets execute-budget-action --region us-east-1 --account-id "$ACCOUNT_ID" --budget-name "$BUDGET" \
+     --action-id "$ACTION_ID" --execution-type REVERSE_BUDGET_ACTION
+   ```
+5. **Activate the cost allocation tag** in the payer (management) account, or in a standalone account; member accounts can't. Send one chat first: the key `iamPrincipal/Project` appears only after the tagged role calls Bedrock. It can take up to 24 hours to appear and up to 24 hours more to activate. Console: Billing and Cost Management → Cost allocation tags → filter by IAM principal → `iamPrincipal/Project` → Activate. CLI:
+   ```bash
+   aws ce list-cost-allocation-tags --region us-east-1 --tag-keys iamPrincipal/Project
+   aws ce update-cost-allocation-tags-status --region us-east-1 \
+     --cost-allocation-tags-status TagKey=iamPrincipal/Project,Status=Active
+   ```
+   Skip this step if the tag already shows `Active`. Until it is active, the budget counts $0 and the cap can't trip.
+6. **Check that the budget counts the app's spend**, a day after activation and some chats:
+   ```bash
+   ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+   aws ce get-cost-and-usage --region us-east-1 --granularity MONTHLY --metrics UnblendedCost \
+     --time-period Start=<first day of this month>,End=<tomorrow> \
+     --filter '{"Tags":{"Key":"iamPrincipal/Project","Values":["aws-pricing-assistant-prod"],"MatchOptions":["EQUALS"]}}'
+   aws budgets describe-budget --region us-east-1 --account-id "$ACCOUNT_ID" \
+     --budget-name aws-pricing-assistant-prod-bedrock-monthly --query 'Budget.CalculatedSpend.ActualSpend'
+   ```
+   Both should be above $0.
+
+New deployments: steps 1, 5 and 6 apply too.
+
+### 🤖 Model Update — Claude Opus 5.5 and Sonnet 5.5
+- Model dropdown updated to the latest of each family: **Claude Opus 5.5** (`us.anthropic.claude-opus-5-5`, default) and **Claude Sonnet 5.5** (`us.anthropic.claude-sonnet-5-5`), both via Bedrock US cross-region inference profiles (verified ACTIVE in us-west-2)
+- Replaces Claude Opus 5 (`us.anthropic.claude-opus-5`) and Claude Sonnet 5 (`us.anthropic.claude-sonnet-5`)
+- Updated across `ModelSelector.tsx`, `useModel.tsx`, `bedrockToolService.ts`, `config/index.ts`, `index.ts`, `04-ecs-services.yaml` (`BEDROCK_INFERENCE_PROFILE_{OPUS,SONNET}_ARN`), `06-monitoring.yaml` dashboard, README, threat model, and issue template
+- No IAM change: the ECS task role's `BedrockAccess` policy already allows `bedrock:InvokeModel`, `bedrock:InvokeModelWithResponseStream` and `bedrock:Converse` on `Resource: '*'`
+- Both models bind thinking blocks to the conversation that produced them (preserved thinking). The tool loop replays each assistant turn unchanged within a request, and earlier turns are sent as text without thinking blocks, which the API accepts
+
+### 💰 Bedrock Cost Cap Scoped to This App
+- The monthly Bedrock budget (`11-bedrock-budget.yaml`) filtered on `Service = Amazon Bedrock` for the whole account, so other Bedrock use in the same account could trip the cap and cut the app off. It now filters on the IAM principal cost allocation tag `iamPrincipal/Project = <ProjectName>-<Environment>`. Amazon Bedrock records the calling IAM principal on each inference request, so the budget counts Bedrock spend from principals that carry this tag: the app's ECS task role
+- The ECS task role (`04-ecs-services.yaml`) now carries the tag `Project = <ProjectName>-<Environment>`
+- Prerequisite: the `iamPrincipal/Project` cost allocation tag must be active (Upgrade Steps, step 5). Cost allocation tags are not retroactive: only Bedrock spend after the role is tagged and the tag is active counts
+- The auto-deny budget action is unchanged and still targets only the ECS task role
+
+### 🔧 Pipeline: CloudFormation Role Can Create or Update the Budget
+- The pipeline's CloudFormation service role (`05-codepipeline.yaml`) listed `budgets:CreateBudget`, `budgets:UpdateBudget`, `budgets:DescribeBudget(s)` and the notification and subscriber names. None of these are IAM actions, so the pipeline could not create or update the budget. The role now grants `budgets:ViewBudget`, `budgets:ModifyBudget` and `budgets:ListTagsForResource`, scoped to `arn:aws:budgets::<account>:budget/<ProjectName>-*`. The budget-action permissions are unchanged
+
 ## [v1.2.2] - 2026-11-12 - Dependency Security Update (public tag)
 
 Rebuild and redeploy the backend and frontend images to pick up the runtime fixes. No configuration change is needed.
